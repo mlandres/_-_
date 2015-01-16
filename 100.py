@@ -178,6 +178,7 @@ class GameGrid( QWidget ):
       self._highlightIf( row-2, col-2 )
     else:
       w.highlight = False
+      self.solved()
 
   def _highlightIf( self, row, col ):
     if row < 0 or row >= self.maxRow:
@@ -189,7 +190,6 @@ class GameGrid( QWidget ):
       w.highlight = True
 
   def gsSelect( self, gs ):
-    print "!: %d %d" % ( gs.row, gs.col )
     self.lowlight()
     self.current += 1
     self.highlight( gs )
@@ -212,6 +212,18 @@ class GameGrid( QWidget ):
   def gsReset( self ):
     self.current = 0
     self.lowlight( self.current )
+
+  def solved( self ):
+    path = '%s/.config/100' % os.environ['HOME']
+    f = open( path, 'a' )
+    f.write( '%d:' % time.time() )
+    for row in range( 0, self.maxRow ):
+      f.write( ' {' )
+      for col in range( 0, self.maxCol ):
+	f.write( ' %d' % self.widgetAt( row, col ).value )
+      f.write( ' }' )
+    f.write( '\n' )
+    f.close()
 
 #======================================================================
 
