@@ -126,11 +126,12 @@ class GameGrid( QWidget ):
 	self.grid.addWidget( gs, row, col )
 
     l = QHBoxLayout()
-
     w = QPushButton( 'Undo' )
     w.clicked.connect( self.gsUndo )
     l.addWidget( w )
-
+    w = QPushButton( 'Auto' )
+    w.clicked.connect( self.gsAuto )
+    l.addWidget( w )
     w = QPushButton( 'Reset' )
     w.clicked.connect( self.gsReset )
     l.addWidget( w )
@@ -141,8 +142,20 @@ class GameGrid( QWidget ):
     self.target  = self.maxRow * self.maxCol
     self.current = 0
 
+    self.lockrow = None
+    self.lockcol = None
+
   def widgetAt( self, row, col ):
     return self.grid.itemAtPosition( row, col ).widget()
+
+  def widgetNum( self, num ):
+    if 0 < num and num <= self.current:
+      for row in range( 0, self.maxRow ):
+	for col in range( 0, self.maxCol ):
+	  gs = self.widgetAt( row, col )
+	  if gs.value == num:
+	    return gs
+    return None
 
   def lowlight( self, reset = None ):
     r = None
@@ -163,55 +176,135 @@ class GameGrid( QWidget ):
     return r
 
   def highlight( self, w ):
+    # -> number of next highlights
+    ret = 0
     w.value = self.current
     if self.current < self.target:
       w.highlight = True
       row = w.row
       col = w.col
-      self._highlightIf( row-3, col )
-      self._highlightIf( row, col+3 )
-      self._highlightIf( row+3, col )
-      self._highlightIf( row, col-3 )
-      self._highlightIf( row-2, col+2 )
-      self._highlightIf( row+2, col+2 )
-      self._highlightIf( row+2, col-2 )
-      self._highlightIf( row-2, col-2 )
+      if self._highlightIf( row-3, col ):	ret += 1
+      if self._highlightIf( row-2, col+2 ):	ret += 1
+      if self._highlightIf( row, col+3 ):	ret += 1
+      if self._highlightIf( row+2, col+2 ):	ret += 1
+      if self._highlightIf( row+3, col ):	ret += 1
+      if self._highlightIf( row+2, col-2 ):	ret += 1
+      if self._highlightIf( row, col-3 ):	ret += 1
+      if self._highlightIf( row-2, col-2 ):	ret += 1
     else:
       w.highlight = False
       self.solved()
+    return ret
 
   def _highlightIf( self, row, col ):
+    # -> True if highlighted
     if row < 0 or row >= self.maxRow:
-      return
+      return False
     if col < 0 or col >= self.maxCol:
-      return
+      return False
     w = self.widgetAt( row, col )
-    if not w.value:
+    if self.lockrow is None:
+      if w.value:
+	return False
       w.highlight = True
+      return True
+    elif self.lockrow == row and self.lockcol == col:
+      self.lockrow = None
+      self.lockcol = None
+    return False
 
   def gsSelect( self, gs ):
+    # -> number of next highlights
     self.lowlight()
     self.current += 1
-    self.highlight( gs )
+    ret = self.highlight( gs )
+    #print "s %3d -> %d" % ( self.current, ret )
+    return ret
 
   def gsUndo( self, gs = None ):
-    """ None => undo last """
+    """ None => undo last; Return number of fwds  """
     if gs:
       self.current = gs.value
     elif self.current > 1:
       self.current = self.current - 1
     elif self.current == 1:
       self.gsReset()
-      return
+      return self.target
     else:
-      return
-
+      return self.target
     gs = self.lowlight( self.current )
-    self.highlight( gs )
+    ret = self.highlight( gs )
+    #print "u %3d -> %d" % ( self.current, ret )
+    return ret
 
   def gsReset( self ):
     self.current = 0
     self.lowlight( self.current )
+    self.lockrow = None
+    self.lockcol = None
+
+  def _step( self, step ):
+    if not step % 100:
+      print step
+    return step + 1
+
+  def gsAuto( self, looped = False ):
+    if self.current == 0:
+      pass
+    elif self.current == self.target:
+      self._autoBwd()
+    else:
+      steps = 0
+      while self.current != 0 and self.current != self.target:
+	if self._autoFwd():
+	  while self._autoFwd():
+	    steps = self._step( steps )
+	    #app.processEvents();
+	    pass
+	else:
+	  while not self._autoBwd():
+	    steps = self._step( steps )
+	    #app.processEvents();
+	    pass
+	app.processEvents();
+
+  def _autoFwd( self ):
+    # Return True if we moved forward
+    w = self.widgetNum( self.current )
+    row = w.row
+    col = w.col
+    if self._auto( row-3, col ):	return True
+    if self._auto( row-2, col+2 ):	return True
+    if self._auto( row, col+3 ):	return True
+    if self._auto( row+2, col+2 ):	return True
+    if self._auto( row+3, col ):	return True
+    if self._auto( row+2, col-2 ):	return True
+    if self._auto( row, col-3 ):	return True
+    if self._auto( row-2, col-2 ):	return True
+    return False
+
+  def _autoBwd( self ):
+    # Return True if we can move forward again
+    w = self.widgetNum( self.current )
+    self.lockrow = w.row
+    self.lockcol = w.col
+    return self.gsUndo()
+
+  def _auto( self, row, col ):
+    # Return True if we moved forward
+    if row < 0 or row >= self.maxRow:
+      return False
+    if col < 0 or col >= self.maxCol:
+      return False
+    if self.lockrow is None:
+      w = self.widgetAt( row, col )
+      if not w.value and w.highlight:
+	self.gsSelect( self.widgetAt( row, col ) )
+	return True
+    elif self.lockrow == row and self.lockcol == col:
+      self.lockrow = None
+      self.lockcol = None
+    return False
 
   def solved( self ):
     path = '%s/.config/100' % os.environ['HOME']
@@ -237,7 +330,10 @@ class MainWindow( QMainWindow ):
     self.setCentralWidget( GameGrid() )
 
 #======================================================================
+app = None
+
 def main():
+  global app
   app = QApplication( sys.argv )
 
   main = MainWindow( sys.argv[1:] )
