@@ -145,6 +145,8 @@ class GameGrid( QWidget ):
     self.lockrow = None
     self.lockcol = None
 
+    self.autosolving = False
+
   def widgetAt( self, row, col ):
     return self.grid.itemAtPosition( row, col ).widget()
 
@@ -243,34 +245,37 @@ class GameGrid( QWidget ):
     self.lockrow = None
     self.lockcol = None
 
-  def _step( self, step ):
-    if not step % 100:
-      print step
-    return step + 1
-
   def gsAuto( self, looped = False ):
-    if self.current == 0:
+    if self.autosolving:
+      self.autosolving = False
+    elif self.current == 0:
       pass
     elif self.current == self.target:
       self._autoBwd()
     else:
+      self.autosolving = True
       steps = 0
-      while self.current != 0 and self.current != self.target:
+      while self.autosolving and self.current != 0 and self.current != self.target:
 	if self._autoFwd():
-	  while self._autoFwd():
-	    steps = self._step( steps )
-	    #app.processEvents();
+	  while self.current != 0 and self._autoFwd():
+	    app.processEvents();
 	    pass
 	else:
-	  while not self._autoBwd():
-	    steps = self._step( steps )
-	    #app.processEvents();
+	  while self.current != 0 and not self._autoBwd():
+	    app.processEvents();
 	    pass
-	app.processEvents();
+	#break
+	steps += 1
+	if not steps % 100:
+	  print "%d ===>" % steps
+	  app.processEvents();
+      self.autosolving = False
 
   def _autoFwd( self ):
     # Return True if we moved forward
     w = self.widgetNum( self.current )
+    if w is None:
+      return False
     row = w.row
     col = w.col
     if self._auto( row-3, col ):	return True
@@ -286,6 +291,8 @@ class GameGrid( QWidget ):
   def _autoBwd( self ):
     # Return True if we can move forward again
     w = self.widgetNum( self.current )
+    if w is None:
+      return 0
     self.lockrow = w.row
     self.lockcol = w.col
     return self.gsUndo()
