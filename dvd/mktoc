@@ -1,0 +1,126 @@
+#! /usr/bin/env ruby
+# ======================================================================
+require 'shellwords'
+require 'ostruct'
+require 'optparse'
+# ======================================================================
+def command( cmd )
+  if $opts.dryrun
+    puts "[dry-run] #{cmd}"
+  else
+    raise RuntimeError, cmd , "#{$0}: #{$?}" unless system cmd
+  end
+end
+# ======================================================================
+$opts = OpenStruct.new
+$opts.tocfile	= 'toc'
+$opts.dryrun	= false
+$opts.renumber	= false
+#opts.album
+#opts.prefix
+#opts.tracks
+$opts.tags	= []
+
+OptionParser.new do |o|
+  begin
+    o.banner += ' <args>'
+    o.separator 'Read (A)lbum (default:empty), file(P)refix (default:empty),'
+    o.separator '(T)otal number of tracks (default: max track number),'
+    o.separator 'track number and title from toc file'
+    o.separator '    A: Star Trek: The Next Generation, Staffel 1'
+    o.separator '    P: 01-'
+    o.separator '    T: 26'
+    o.separator '    01 Mission Farpoint'
+    o.separator '    02 ...'
+    o.separator 'If the number of files passed as arguments matches the size of the tocfile,'
+    o.separator 'rename the files accordingly and set id3/mp4 tags. If track number is 0 it'
+    o.separator 'will be stripped from the file name.'
+    o.separator ''
+    o.separator 'Options:'
+
+    o.on('--renumber','ignore tracknumbers in toc file and renumber starting by 1') do
+      $opts.renumber = true
+    end
+
+    o.on('-n','--dry-run','perform a trial run with no changes made') do
+      $opts.dryrun = true
+    end
+
+    o.on('-h','--help','display this help and exit') do
+      puts o;
+      exit 0
+    end
+
+    # ======================================================================
+    o.parse!
+    # ======================================================================
+
+    # handle non option args
+    raise OptionParser::MissingArgument, 'args' if not ARGV or ARGV.empty?
+    ARGV.each do |file|
+      raise OptionParser::InvalidArgument, file unless File.exist?( file )
+      $opts.tags.push( { :f => file } )
+    end
+
+  rescue OptionParser::ParseError => e
+    puts "#{o.program_name}: #{e}";
+    puts "Try '#{o.program_name} --help' for more information."
+    exit 9
+  end
+end
+# ======================================================================
+
+tagidx = 0
+maxtrack = 0
+File.open( $opts.tocfile ).each do |toc|
+  next if toc =~ /^\s*(#.*)?$/
+  toc.chomp!
+  key,value = toc.split( /\s+/, 2 )
+  #puts "%s | %s" % [ key, value ]
+  case key
+  when 'A:'
+    $opts.album = value
+  when 'P:'
+    $opts.prefix = value
+  when 'T:'
+    $opts.tracks = value.to_i
+  when /\d+/
+    raise RuntimeError, "missmatch: more toc than #{$opts.tags.size} args" , $0 if tagidx == $opts.tags.size
+    ctrack = $opts.renumber ? tagidx + 1 : key.to_i
+    $opts.tags[tagidx][:n] = ctrack
+    $opts.tags[tagidx][:t] = value
+    tagidx += 1
+    maxtrack = ctrack if maxtrack < ctrack
+  else
+    raise RuntimeError, "'#{toc}'", "#{$0}: bad line in toc"
+  end
+end
+raise RuntimeError, "missmatch: #{tagidx} toc vs. #{$opts.tags.size} args" , $0 if tagidx != $opts.tags.size
+
+$opts.tracks = maxtrack unless $opts.tracks
+tracknowidth = $opts.tags.size >= 100 ? 3 : 2
+$opts.tags.each do |tags|
+  trgext = File.extname( tags[:f] ).downcase
+
+  if tags[:n] != 0
+    trgfile = "%s%0*d %s%s" % [ $opts.prefix, tracknowidth, tags[:n], tags[:t], trgext ]
+  else
+    trgfile = "%s%s%s" % [ $opts.prefix, tags[:t], trgext ]
+  end
+  trgfile.tr!( ':/', '_' )
+
+  if tags[:f] != trgfile
+    command "mv -v #{Shellwords.escape(tags[:f])} #{Shellwords.escape(trgfile)}"
+  else
+    puts "#  #{Shellwords.escape(tags[:f])}\t#{Shellwords.escape(trgfile)}"
+  end
+
+  if trgext == '.mp4'
+    cmd =  "mp4tags -album #{Shellwords.escape($opts.album)}"
+    cmd += " -track #{Shellwords.escape(tags[:n])}"
+    cmd += " -tracks #{$opts.tracks}"
+    cmd += " -song #{Shellwords.escape(tags[:t])}"
+    cmd += " #{Shellwords.escape(trgfile)}"
+    command cmd
+  end
+end
