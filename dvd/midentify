@@ -3,8 +3,7 @@
 function _mpident()
 {
   local DEV="$1"
-  test -d "$DEV" && DEV="dvd://0/$DEV"
-  mplayer -identify -frames 0 "$DEV" 2>/dev/null
+  mplayer -identify -frames 0 dvd://0 ${DEV:+-dvd-device} "$DEV" 2>/dev/null
 }
 
 VERBOSE=0
@@ -28,9 +27,7 @@ _mpident "$INPUTFILE" \
   /^CHAPTERS:/			{ print; next }
   /^ID_CHAPTER_[0-9]*_START=/	{ gsub(".*=",""); cs=$0; next }
   /^ID_CHAPTER_[0-9]*_END=/	{ gsub(".*=",""); cd=$0-cs; next }
-  /^ID_CHAPTER_[0-9]*_NAME=/	{ printf "%s\t(%2d:%02d.%03d)\n", $0, cd/60000, (cd/1000)%60, cd%1000
-
-  ; next }
+  /^ID_CHAPTER_[0-9]*_NAME=/	{ printf "%s\t(%2d:%02d.%03d)\n", $0, cd/60000, (cd/1000)%60, cd%1000; next }
   /stream [0-9]+:/		{ print; next }
   (verbose)			{ print "#", $0 }
 '
