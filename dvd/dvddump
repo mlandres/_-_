@@ -1,0 +1,97 @@
+#! /usr/bin/env ruby
+# ======================================================================
+require 'shellwords'
+require 'ostruct'
+require 'optparse'
+# ======================================================================
+$opts = OpenStruct.new
+$opts.input	= '/misc/cd'
+#opts.output	= dvddump
+$opts.autonum	= false
+#opts.autostart	= 1
+
+OptionParser.new do |o|
+  begin
+    o.banner += ' [<name>]'
+    o.separator 'Vobcopy a DVD to directory <name>. If no <name> is specified,'
+    o.separator 'just scan the imput device. If an empty <name> is specified'
+    o.separator 'auto-numbering is enforced (NN).'
+    o.separator 'Options:'
+
+    o.on('-i','--input <path>',String,'Set input device (default: '"#{$opts.input}"')') do |arg|
+      $opts.input = arg
+    end
+
+    o.on('-n','--number [<int>]',Integer,'Turn on auto-numbering. Start with number <int> if specified.') do |arg|
+      $opts.autonum	= true
+      $opts.autostart	= arg if arg
+    end
+
+    o.on('-h','--help','display this help and exit') do
+      puts o;
+      exit 0
+    end
+
+    # ======================================================================
+    o.parse!
+    # ======================================================================
+    # handle non option args
+    $opts.output = ARGV.shift			if ARGV and not ARGV.empty?
+    raise OptionParser::NeedlessArgument, ARGV	if not ARGV.empty?
+
+    if not $opts.output
+      # no default - instead: scan only
+      #$opts.output	= 'dvddump'
+      #$opts.autonum	= true
+      #$opts.autostart	= 1 unless $opts.autostart
+    elsif $opts.output.empty?
+      $opts.autonum	= true
+      $opts.autostart	= 1 unless $opts.autostart
+    else
+      raise OptionParser::InvalidArgument, '<name> constains a `/`' if $opts.output.include? '/'
+      raise OptionParser::InvalidArgument, '<name> starts with a `.`' if $opts.output.start_with? '.'
+    end
+
+  rescue OptionParser::ParseError => e
+    puts "#{o.program_name}: #{e}";
+    puts "Try '#{o.program_name} --help' for more information."
+    exit 9
+  end
+end
+# ======================================================================
+
+p $opts
+
+if not $opts.output
+
+  cmd = "dvdbackup --info --input #{Shellwords.escape($opts.input)}"
+  puts cmd
+  system( cmd )
+
+else
+
+  output = $opts.output
+  if $opts.autonum
+    autonum	= $opts.autostart ? $opts.autostart : 0
+    autoform	= $opts.output.empty? ? "%02d" : "-%02d"
+
+    if $opts.autostart
+      output = $opts.output + autoform%autonum if $opts.autostart
+    end
+
+    while File.exist?( output )
+      autonum += 1
+      output = $opts.output + autoform%autonum
+    end
+  end
+
+  cmd = "dvdbackup --progress --mirror --input #{Shellwords.escape($opts.input)} --name #{Shellwords.escape(output)}"
+  puts cmd
+  if system( cmd )
+    cmd = "HandBrakeCLI --scan --title 0 --input #{Shellwords.escape($opts.output)} 2>#{Shellwords.escape(output)}/scan"
+    puts cmd
+    system( cmd )
+    system( 'sudo eject' )
+  end
+
+end

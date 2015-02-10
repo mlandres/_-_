@@ -1,0 +1,80 @@
+#! /bin/bash
+#
+# ############################################################
+
+OPTSTR="?hl:t:c:"
+
+DVD_LANG=de
+DVD_TITLE=1
+DVD_CHAPTER=1
+
+# ############################################################
+
+function Usage()
+{
+  echo "$*" >&2
+  cat <<- EOF >&2
+	Usage: $(basename $0) [$OPTSTR] [DVD_DEVICE]
+	  -l	Language code (de)
+	  -t	title number (1)
+	  -c	chapter number (1)
+	  DVD_DEVICE optional iso file
+	EOF
+  exit 1
+}
+
+function ChkArg()
+{
+  case "$1" in
+    -*)
+      Usage "Illegal argument to -$OPTNAME '$1'"
+      return 1
+      ;;
+  esac
+  return 0
+}
+
+if [ -n "$OPTSTR" ]; then
+  while getopts "$OPTSTR" OPTNAME; do
+    ChkArg $OPTARG $OPTNAME
+    case $OPTNAME in
+    l)
+      DVD_LANG="$OPTARG"
+      ;;
+    t)
+      DVD_TITLE="$OPTARG"
+      ;;
+    c)
+      DVD_CHAPTER="$OPTARG"
+      ;;
+    [?h])
+      Usage
+      ;;
+    *)
+      echo "$OPTNAME($OPTARG)"
+      ;;
+    esac
+  done
+  shift $(($OPTIND-1))
+fi
+
+# ##########################################
+
+DVD_ROOT=/qnap/Qmultimedia/all/Video/
+# test -z "$1" && {
+#   ls -l "$DVD_ROOT"
+#   Usage
+# }
+
+DVD_DEVICE=
+test -n "$1" && {
+  for D in "$1" "$1".iso "$DVD_ROOT/$1" "$DVD_ROOT/$1".iso; do
+    test -e "$D" && {
+      DVD_DEVICE="$D"
+      echo "Found '$DVD_DEVICE'"
+      break
+    }
+  done
+}
+
+mplayer dvd://$DVD_TITLE -alang $DVD_LANG -chapter $DVD_CHAPTER -dvdangle 1 ${DVD_DEVICE:+-dvd-device} "$DVD_DEVICE"

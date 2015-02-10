@@ -1,0 +1,6 @@
+#! /bin/bash
+TAG="#@!"
+test -d "$1" && {
+  find "$1" -mindepth 1 -maxdepth 1 -type d -iname 'VIDEO_TS' -printf "$TAG"	\
+  | grep -q "$TAG"
+}

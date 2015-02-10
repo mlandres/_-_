@@ -1,0 +1,167 @@
+#! /bin/bash
+
+# wo/ menues: vlc dvdsimple://
+
+# http://dvd.sourceforge.net/dvdinfo/ifo.html
+# http://dvd.sourceforge.net/dvdinfo/sprm.html
+
+# Starte erstmal die DVD ganz normal im Player. Sobald der Film läuft, schaust du dir an, welche UT-Spur
+# ausgewählt ist und ob die auch aktiviert ist. Mit Media Player Classic geht das sehr gut.
+#
+# a) Aktiviert. Das ist der seltenere Fall einer separaten Spur für notwendige UT, die auch nur die
+# notwendigen UT enthält. An dem Punkt weißt du schon, dass du dich um die UT kümmern musst. Die
+# aktive Spur extrahierst du wie eine ganz stinknormale Komplett-Spur (»Forced Subs only«-Option
+# abgeschaltet!) und bist fertig.
+#
+# b) Deaktiviert. Normalfall. Kann sein, dass die Spur Forced Subs enthält, muss aber nicht. Also
+# checkst du die Spur mit SubRip (»Forced subs only« einschalten!).
+#
+# P.S.: »Forced Subs« im eigentlichen Sinn (d.h. Einträge mit gesetztem Forced-Flag) hat nu
+#r Fall b. Fall a ist eine normale UT-Spur, die über die Steuerfunktionen der DVD automatisch
+# aktiviert wird. Forced-Flags sind in der nicht gesetzt.
+#
+# mencoder my.mp4 -vobsubout my.subtitles -vobsuboutindex 1 -vobsuboutid de -sid 1 -nosound -ovc raw -o /dev/nul
+
+# What software can remove an audio stream from an mp4 file?
+#
+#   ffmpeg -i file.mp4
+#
+# to see which streams exists in your file. You should see something like this:
+#
+#   Stream #0.0: Video: mpeg4, yuv420p, 720x304 [PAR 1:1 DAR 45:19], 23.98 tbr, 23.98 tbn, 23.98 tbc
+#
+#   Stream #0.1: Audio: ac3, 48000 Hz, 5.1, s16, 384 kb/s
+#
+#   Stream #0.2: Audio: ac3, 48000 Hz, 5.1, s16, 384 kb/s
+#
+# Then run
+#
+#   ffmpeg -map 0:0 -map 0:2 -acodec copy -vcodec copy -i file.mp4 new_file.mp4
+#
+# to copy video stream and 2nd audio stream to
+#
+#   new_file.mp4
+#
+
+function Usage()
+{
+  cat<<EOF
+Usage: $(basename "$0") DVDPATH [OPTIONS]
+
+  -a <list>	Audio stream ids to rip (,-separated list; default: 1)
+  -g <num>	Angle to rip (default: 1)
+  -n		Dry run; just echo command
+  -p		Rip just a 3 minute preview
+  -s <list>	Subtitle stream ids to rip (,-separated list; default: none)
+		(forced subs first, full 2nd)
+  -t		Title number to rip (default: none but scan the DVD)
+
+  -h		Display this help and exit
+EOF
+}
+
+function isDVDRoot()
+{
+  local TAG="#@!"
+  test -d "$1" && {
+    find "$1" -mindepth 1 -maxdepth 1 -type d -iname 'VIDEO_TS' -printf "$TAG"	\
+    | grep -q "$TAG"
+  }
+}
+
+# -----[main]------------------------------
+
+DVDPATH="${1}"
+isDVDRoot "$DVDPATH" || errexit -u "No DVD at '$DVDPATH'"
+shift
+
+AUDIO="1"
+SUBTT=""
+ANGLE=""
+DVDTILE="0"
+
+DRYRUN=""
+PREVIEW=""
+
+OPTSTR="a:g:nps:t:h"
+if [ -n "$OPTSTR" ]; then
+  while getopts "$OPTSTR" OPTNAME; do
+    test "${OPTARG:0:1}" = "-" && errexit -u "Illegal argument to -$OPTNAME: '$OPTARG'"
+    case "$OPTNAME" in
+      a)
+	AUDIO="$OPTARG"
+	;;
+      g)
+	ANGLE="$OPTARG"
+	;;
+      n)
+	DRYRUN="echo"
+	;;
+      p)
+	PREVIEW="1"
+	;;
+      s)
+	SUBTT="$OPTARG"
+	;;
+      t)
+	DVDTILE="$OPTARG"
+	;;
+      [?h])
+        Usage; exit $(test "$OPTNAME" = "h" )
+        ;;
+      *)
+        echo "Unhandled opt -$OPTNAME($OPTARG)"
+        ;;
+    esac
+  done
+  shift $(($OPTIND-1))
+fi
+# ############################################################
+
+test "$#" != 0 && PREVIEW="1"
+
+OUTFILE="$(printf "%s/%s-%02d" "$(dirname "$DVDPATH")" "$(basename "$DVDPATH")" "$DVDTILE")"
+
+PRESET="veryslow"
+if [ -n "$PREVIEW" ]; then
+  Recho "PREVIEW MODE"
+  PREVIEW="--start-at duration:0 --stop-at duration:180"
+  PRESET="ultrafast"
+  OUTFILE="$OUTFILE.PREVIEW"
+fi
+
+AUDIO=${AUDIO:+--audio $AUDIO --aencoder $(sed 's/[0-9*]/copy/g' <<<"$AUDIO")}
+SUBTT=${SUBTT:+--subtitle $SUBTT}
+ANGLE=${ANGLE:+--angle $ANGLE}
+
+grep ',' <<<"$SUBTT" && SUBTT="$SUBTT --subtitle-default"
+
+# audio stream: 0 format: ac3 (stereo) language: de aid: 128.
+# audio stream: 1 format: ac3 (5.1) language: en aid: 129.
+# subtitle ( sid ): 1 language: de
+#--aname Deutsch,English
+#   --subtitle-default 2
+#   --subtitle-forced 1
+# --subtitle scan
+#  --aencoder copy,copy
+
+$DRYRUN HandBrakeCLI	\
+  -t "$DVDTILE"	\
+  $PREVIEW	\
+  --preset 'High Profile'	\
+  --x264-preset $PRESET	\
+  --x264-tune film	\
+  --encopts 'bframes=0:b_pyramid=none'	\
+  $ANGLE	\
+  $AUDIO	\
+  --loose-anamorphic	\
+  $SUBTT	\
+  --input "$DVDPATH"	\
+  --markers --large-file --optimize	\
+  --output "$OUTFILE".mp4
+
+if [ -f "$DVDPATH/cover.jpg" -a -z "$PREVIEW" ]; then
+  convert -size 320x320 "$DVDPATH/cover.jpg" -thumbnail 320x320\> "$OUTFILE".jpg
+  mp4art --add "$OUTFILE".jpg "$OUTFILE".mp4
+  rm "$OUTFILE".jpg
+fi
