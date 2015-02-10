@@ -1,0 +1,153 @@
+#! /bin/bash
+# ############################################################
+
+OPTSTR="?hd:f:s:"
+
+TMB_START=300
+TMB_FILE=
+TMB_DIRFILE=
+
+# ############################################################
+
+function Usage()
+{
+  echo "$*" >&2
+  cat <<EOF >&2
+Usage: $(basename $0) [$OPTSTR] VIDEOFILE
+  -d FILE
+	Use FILE as directory thumbnail (folder.jpg)
+  -f FILE
+	Use FILE as video thumbnail.
+  -s	Number of seconds to skip before creating
+	the thumbnails ($TMB_START)
+  Generate thumnails from videofile. Thumbnail is scaled to
+  fit box 320x320 and stored in .mp4 or as VIDEOFILE.jpg for
+  other formats.
+EOF
+  exit 1
+}
+
+function ChkArg()
+{
+  case "$1" in
+    -*)
+      Usage "Illegal argument to -$OPTNAME '$1'"
+      return 1
+      ;;
+  esac
+  return 0
+}
+
+if [ -n "$OPTSTR" ]; then
+  while getopts "$OPTSTR" OPTNAME; do
+    ChkArg "$OPTARG" "$OPTNAME"
+    case $OPTNAME in
+    [?h])
+      Usage
+      ;;
+    d)
+      TMB_DIRFILE="$OPTARG"
+      ;;
+    f)
+      TMB_FILE="$OPTARG"
+      ;;
+    s)
+      TMB_START="$OPTARG"
+      ;;
+    *)
+      echo "$OPTNAME($OPTARG)"
+      ;;
+    esac
+  done
+  shift $(($OPTIND-1))
+fi
+
+# ##########################################
+
+function convthumb()
+{
+  local INP="$1"
+  if [ -f "$INP" ]; then
+    convert -size 320x320 "$INP" -thumbnail 320x320\> /tmp/mkthumb.jpg
+  else
+    rm -f /tmp/mkthumb.jpg
+  fi
+}
+
+function mkthumb()
+{
+  local SS=${1:-300}
+  echo ":$VIDEOFILE at $(($SS / 60)):$(($SS % 60))"
+  mplayer "$VIDEOFILE" -ss $SS -nosound -frames 1 -vo png:outdir=/tmp >/dev/null 2>&1
+  convthumb /tmp/00000001.png
+  rm -f /tmp/00000001.png
+}
+
+# ##########################################
+
+if [ -n "$TMB_DIRFILE" ]; then
+  test -f "$TMB_DIRFILE" || {
+    Usage "No folder thumbfile '$TMB_DIRFILE'"
+  }
+  convthumb "$TMB_DIRFILE"
+  xli -quiet /tmp/mkthumb.jpg
+  read -p "Use for folder? [y] " -n 1 XXX; echo
+  test "$XXX" == "y" && {
+    mv -v /tmp/mkthumb.jpg folder.jpg
+  }
+  exit 0
+fi
+
+# #####
+
+VIDEOFILE="$1"
+VIDEOTHUMB="$(sed 's/\(\....\)\?$/.jpg/' <<<"$1")"
+
+test -f "$VIDEOFILE" || {
+  Usage "No videofile '$VIDEOFILE'"
+}
+
+test -z "$TMB_FILE" -o -f "$TMB_FILE" || {
+  Usage "No thumbfile '$TMB_FILE'"
+}
+
+
+while true; do
+  if [ -n "$TMB_FILE" ]; then
+    convthumb "$TMB_FILE"
+  else
+    mkthumb $TMB_START
+  fi
+
+  test -f /tmp/mkthumb.jpg || {
+    echo "xli oops no thumb (use -s ?) " >&2
+    exit 1
+  }
+
+  xli -quiet /tmp/mkthumb.jpg
+  read -p "Next? [ns] " -n 1 XXX; echo
+
+  case "$XXX" in
+    n)
+      if [ -n "$TMB_FILE" ]; then
+	TMB_FILE=
+      else
+	TMB_START=$(($TMB_START+60))
+      fi
+      ;;
+    s)
+      if grep -q '.mp4$' <<< "$VIDEOFILE"; then
+	mv /tmp/mkthumb.jpg "$VIDEOTHUMB"
+	mp4art --remove "$VIDEOFILE" 2>/dev/null
+	mp4art --add "$VIDEOTHUMB" "$VIDEOFILE"
+	rm "$VIDEOTHUMB"
+      else
+	mv -v /tmp/mkthumb.jpg "$VIDEOTHUMB"
+      fi
+      break
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
