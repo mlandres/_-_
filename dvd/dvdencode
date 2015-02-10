@@ -47,14 +47,17 @@ function Usage()
 {
   cat<<EOF
 Usage: $(basename "$0") DVDPATH [OPTIONS]
+Encode a ripped dvd title. cover-<number>.jpg or cover.jpg in
+DVDPATH are auto added as thumbnail.
 
   -a <list>	Audio stream ids to rip (,-separated list; default: 1)
+  -c <file>	Cover image to use as thumbnail
   -g <num>	Angle to rip (default: 1)
   -n		Dry run; just echo command
   -p		Rip just a 3 minute preview
   -s <list>	Subtitle stream ids to rip (,-separated list; default: none)
 		(forced subs first, full 2nd)
-  -t		Title number to rip (default: none but scan the DVD)
+  -t <number>	Title number to rip (default: none but scan the DVD)
 
   -h		Display this help and exit
 EOF
@@ -79,17 +82,21 @@ AUDIO="1"
 SUBTT=""
 ANGLE=""
 DVDTILE="0"
+CFILE=""
 
 DRYRUN=""
 PREVIEW=""
 
-OPTSTR="a:g:nps:t:h"
+OPTSTR="a:c:g:nps:t:h"
 if [ -n "$OPTSTR" ]; then
   while getopts "$OPTSTR" OPTNAME; do
     test "${OPTARG:0:1}" = "-" && errexit -u "Illegal argument to -$OPTNAME: '$OPTARG'"
     case "$OPTNAME" in
       a)
 	AUDIO="$OPTARG"
+	;;
+      c)
+	CFILE="$OPTARG"
 	;;
       g)
 	ANGLE="$OPTARG"
@@ -160,8 +167,13 @@ $DRYRUN HandBrakeCLI	\
   --markers --large-file --optimize	\
   --output "$OUTFILE".mp4
 
-if [ -f "$DVDPATH/cover.jpg" -a -z "$PREVIEW" ]; then
-  convert -size 320x320 "$DVDPATH/cover.jpg" -thumbnail 320x320\> "$OUTFILE".jpg
-  mp4art --add "$OUTFILE".jpg "$OUTFILE".mp4
-  rm "$OUTFILE".jpg
+if [ -z "$PREVIEW" ]; then
+  test -f "$CFILE" || CFILE="$DVDPATH/cover-$DVDTILE.jpg"
+  test -f "$CFILE" || CFILE="$DVDPATH/cover.jpg"
+  if [ -f "$CFILE" ]; then
+    echo "Using thumbnail $CFILE..."
+    convert -size 320x320 "$CFILE" -thumbnail 320x320\> "$OUTFILE".jpg
+    mp4art --add "$OUTFILE".jpg "$OUTFILE".mp4
+    rm "$OUTFILE".jpg
+  fi
 fi
