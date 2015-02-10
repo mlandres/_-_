@@ -88,7 +88,7 @@ else
   cmd = "dvdbackup --progress --mirror --input #{Shellwords.escape($opts.input)} --name #{Shellwords.escape(output)}"
   puts cmd
   if system( cmd )
-    cmd = "HandBrakeCLI --scan --title 0 --input #{Shellwords.escape($opts.output)} 2>#{Shellwords.escape(output)}/scan"
+    cmd = "HandBrakeCLI --scan --title 0 --input #{Shellwords.escape(output)} 2>#{Shellwords.escape(output)}/scan"
     puts cmd
     system( cmd )
     system( 'sudo eject' )
