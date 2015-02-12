@@ -5,6 +5,8 @@
 # http://dvd.sourceforge.net/dvdinfo/ifo.html
 # http://dvd.sourceforge.net/dvdinfo/sprm.html
 
+# mplayer dvd://4 -dvd-device ../02 -dumpstream -dumpfile title1.vob
+
 # Starte erstmal die DVD ganz normal im Player. Sobald der Film läuft, schaust du dir an, welche UT-Spur
 # ausgewählt ist und ob die auch aktiviert ist. Mit Media Player Classic geht das sehr gut.
 #
@@ -54,6 +56,7 @@ DVDPATH are auto added as thumbnail.
   -c <file>	Cover image to use as thumbnail
   -g <num>	Angle to rip (default: 1)
   -n		Dry run; just echo command
+  -o <file>     Output file stem (default: DVDPATH-TITLEMUMBER) (.mp4 auto is appended)
   -p		Rip just a 3 minute preview
   -s <list>	Subtitle stream ids to rip (,-separated list; default: none)
 		(forced subs first, full 2nd)
@@ -83,11 +86,12 @@ SUBTT=""
 ANGLE=""
 DVDTILE="0"
 CFILE=""
+OUTFILE=""
 
 DRYRUN=""
 PREVIEW=""
 
-OPTSTR="a:c:g:nps:t:h"
+OPTSTR="a:c:g:no:ps:t:h"
 if [ -n "$OPTSTR" ]; then
   while getopts "$OPTSTR" OPTNAME; do
     test "${OPTARG:0:1}" = "-" && errexit -u "Illegal argument to -$OPTNAME: '$OPTARG'"
@@ -103,6 +107,9 @@ if [ -n "$OPTSTR" ]; then
 	;;
       n)
 	DRYRUN="echo"
+	;;
+      o)
+	OUTFILE="$OPTARG"
 	;;
       p)
 	PREVIEW="1"
@@ -127,7 +134,7 @@ fi
 
 test "$#" != 0 && PREVIEW="1"
 
-OUTFILE="$(printf "%s/%s-%02d" "$(dirname "$DVDPATH")" "$(basename "$DVDPATH")" "$DVDTILE")"
+test -z "$OUTFILE" && OUTFILE="$(printf "%s/%s-%02d" "$(dirname "$DVDPATH")" "$(basename "$DVDPATH")" "$DVDTILE")"
 
 PRESET="veryslow"
 if [ -n "$PREVIEW" ]; then
