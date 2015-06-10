@@ -19,6 +19,7 @@ test "$2" == "-v" && {
 
 _mpident "$INPUTFILE" \
 | awk -v verbose="$VERBOSE" '
+  /ID_DVD_TITLE_[0-9]*_LENGTH/	{ t=$1; gsub(".*=","",t); printf "%s\t%s min\n", $0, t/60; next }
   /ID_DVD_TITLE/ 		{ print; next }
   /ID_DVD_CURRENT_TITLE/	{ print; next }
   /VIDEO:/			{ print; next }
