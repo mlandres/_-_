@@ -23,6 +23,8 @@ Usage: $(basename $0) [$OPTSTR] VIDEOFILE
   Generate thumnails from videofile. Thumbnail is scaled to
   fit box 320x320 and stored in .mp4 or as VIDEOFILE.jpg for
   other formats.
+
+  for f in *mp4; do mp4info "\$f" | grep -q 'Cover Art pieces:' || mkvideothumb "\$f"; done
 EOF
   exit 1
 }
