@@ -53,8 +53,9 @@ Encode a ripped dvd title. cover-<number>.jpg or cover.jpg in
 DVDPATH are auto added as thumbnail.
 
   -a <list>	Audio stream ids to rip (,-separated list; default: 1)
-  -c <file>	Cover image to use as thumbnail
+  -c <chapters>	Select chapters (e.g. "1-3" or just "3"; default: all chapters)
   -g <num>	Angle to rip (default: 1)
+  -i <file>	Cover image to use as thumbnail
   -n		Dry run; just echo command
   -o <file>     Output file stem (default: DVDPATH-TITLEMUMBER) (.mp4 auto is appended)
   -p		Rip just a 3 minute preview
@@ -85,13 +86,14 @@ AUDIO="1"
 SUBTT=""
 ANGLE=""
 DVDTILE="0"
-CFILE=""
+CHAPTER=""
 OUTFILE=""
+OUTIMAGE=""
 
 DRYRUN=""
 PREVIEW=""
 
-OPTSTR="a:c:g:no:ps:t:h"
+OPTSTR="a:c:g:i:no:ps:t:h"
 if [ -n "$OPTSTR" ]; then
   while getopts "$OPTSTR" OPTNAME; do
     test "${OPTARG:0:1}" = "-" && errexit -u "Illegal argument to -$OPTNAME: '$OPTARG'"
@@ -100,10 +102,13 @@ if [ -n "$OPTSTR" ]; then
 	AUDIO="$OPTARG"
 	;;
       c)
-	CFILE="$OPTARG"
+	CHAPTER="$OPTARG"
 	;;
       g)
 	ANGLE="$OPTARG"
+	;;
+      i)
+	OUTIMAGE="$OPTARG"
 	;;
       n)
 	DRYRUN="echo"
@@ -134,7 +139,7 @@ fi
 
 test "$#" != 0 && PREVIEW="1"
 
-test -z "$OUTFILE" && OUTFILE="$(printf "%s/%s-%02d" "$(dirname "$DVDPATH")" "$(basename "$DVDPATH")" "$DVDTILE")"
+test -z "$OUTFILE" && OUTFILE="$(printf "%s/%s-%02d%s" "$(dirname "$DVDPATH")" "$(basename "$DVDPATH")" "$DVDTILE" "${CHAPTER:+$(printf "c%02d" "$CHAPTER")}")"
 
 PRESET="veryslow"
 if [ -n "$PREVIEW" ]; then
@@ -147,8 +152,9 @@ fi
 AUDIO=${AUDIO:+--audio $AUDIO --aencoder $(sed 's/[0-9*]/copy/g' <<<"$AUDIO")}
 SUBTT=${SUBTT:+--subtitle $SUBTT}
 ANGLE=${ANGLE:+--angle $ANGLE}
+CHAPTER=${CHAPTER:+ --chapters $CHAPTER}
 
-grep ',' <<<"$SUBTT" && SUBTT="$SUBTT --subtitle-default"
+grep -q ',' <<<"$SUBTT" && SUBTT="$SUBTT --subtitle-default"
 
 # audio stream: 0 format: ac3 (stereo) language: de aid: 128.
 # audio stream: 1 format: ac3 (5.1) language: en aid: 129.
@@ -159,13 +165,16 @@ grep ',' <<<"$SUBTT" && SUBTT="$SUBTT --subtitle-default"
 # --subtitle scan
 #  --aencoder copy,copy
 
+# --encopts 'bframes=0:b_pyramid=none'
+
 $DRYRUN HandBrakeCLI	\
   -t "$DVDTILE"	\
+  $CHAPTER	\
   $PREVIEW	\
   --preset 'High Profile'	\
   --x264-preset $PRESET	\
   --x264-tune film	\
-  --encopts 'bframes=0:b_pyramid=none'	\
+  \
   $ANGLE	\
   $AUDIO	\
   --loose-anamorphic	\
@@ -175,11 +184,11 @@ $DRYRUN HandBrakeCLI	\
   --output "$OUTFILE".mp4
 
 if [ -z "$PREVIEW" ]; then
-  test -f "$CFILE" || CFILE="$DVDPATH/cover-$DVDTILE.jpg"
-  test -f "$CFILE" || CFILE="$DVDPATH/cover.jpg"
-  if [ -f "$CFILE" ]; then
-    echo "Using thumbnail $CFILE..."
-    convert -size 320x320 "$CFILE" -thumbnail 320x320\> "$OUTFILE".jpg
+  test -f "$OUTIMAGE" || OUTIMAGE="$DVDPATH/cover-$DVDTILE.jpg"
+  test -f "$OUTIMAGE" || OUTIMAGE="$DVDPATH/cover.jpg"
+  if [ -f "$OUTIMAGE" ]; then
+    echo "Using thumbnail $OUTIMAGE..."
+    convert -size 320x320 "$OUTIMAGE" -thumbnail 320x320\> "$OUTFILE".jpg
     mp4art --add "$OUTFILE".jpg "$OUTFILE".mp4
     rm "$OUTFILE".jpg
   fi
