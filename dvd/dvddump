@@ -16,6 +16,7 @@ OptionParser.new do |o|
     o.separator 'Vobcopy a DVD to directory <name>. If no <name> is specified,'
     o.separator 'just scan the imput device. If an empty <name> is specified'
     o.separator 'auto-numbering is enforced (NN).'
+    o.separator 'If an image named <name>.jpg exists move it to <name>/cover.jpg.'
     o.separator 'Options:'
 
     o.on('-i','--input <path>',String,'Set input device (default: '"#{$opts.input}"')') do |arg|
@@ -91,6 +92,11 @@ else
     cmd = "HandBrakeCLI --scan --title 0 --input #{Shellwords.escape(output)} 2>#{Shellwords.escape(output)}/scan"
     puts cmd
     system( cmd )
+    if  File.exist?( output+".jpg" )
+      cmd = "mv -v #{Shellwords.escape(output)}.jpg #{Shellwords.escape(output)}/cover.jpg"
+      puts cmd
+      system( cmd )
+    end
     system( 'sudo eject' )
   end
 
