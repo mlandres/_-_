@@ -61,21 +61,27 @@ class AudioFile < Qt::TableWidgetItem
     @file = file
     @name = File.basename( file )
     super( parent, @name )
-    @disk = @name[/^[0-9]*-/]
-    if ( @disk.nil? )
-      @disk = 1
-    else
-      @disk = @disk[/^[0-9]*/].to_i
-    end
-    @track = @name[/^[-0-9]*/][/[0-9]*$/].to_i
 
-    i = cmdstr( "audioinfo '#{escstr(file)}' | grep 'kbs,'" )[0]
-    if ( not i.nil? )
-      i = i.strip().to_s.split( ', ' )
-      @bitrate   = i[0]
-      @frequency = i[1]
-      @chanels   = i[2]
-      @duration  = i[3]
+    tag = @name[/^([0-9]+-)?[0-9]+/]
+    if ( tag.nil? )
+      @disk = @track = 0
+    else
+      @disk = tag[/^[0-9]+-/]
+      if ( @disk.nil? )
+	@disk = 1
+      else
+	@disk = @disk[/^[0-9]+/].to_i
+      end
+      @track = tag[/[0-9]+$/].to_i
+    end
+
+    tag = cmdstr( "audioinfo '#{escstr(file)}' | grep 'kbs,'" )[0]
+    if ( not tag.nil? )
+      tag = tag.strip().to_s.split( ', ' )
+      @bitrate   = tag[0]
+      @frequency = tag[1]
+      @chanels   = tag[2]
+      @duration  = tag[3]
     end
   end
 
@@ -84,6 +90,17 @@ class AudioFile < Qt::TableWidgetItem
   def valid()
     return @bitrate.nil?
   end
+
+  def to_s()
+    return @name
+  end
+
+  def <=> ( rhs )
+    return self.disk <=> rhs.disk	unless ( self.disk == rhs.disk )
+    return self.track <=> rhs.track	unless ( self.track == rhs.track )
+    self.name <=> rhs.name
+  end
+
 end
 
 ############################################################
@@ -92,34 +109,40 @@ class AudioTable < Qt::TableWidget
 
   def initialize( dir, parent = nil )
     super( parent )
-    setColumnCount( 5 )
+    @maxCol = 6
+    setColumnCount( @maxCol+1 )
     horizontalHeader().setStretchLastSection( true )
     setEditTriggers( Qt::AbstractItemView::NoEditTriggers )
     setSelectionMode( Qt::AbstractItemView::SingleSelection )
     setSelectionBehavior( Qt::AbstractItemView::SelectRows )
-    #connect( self, SIGNAL('cellDoubleClicked(int,int)'), self, SLOT('xchange(int,int)') )
-    connect( self, SIGNAL('itemDoubleClicked(QTableWidgetItem*)'), self, SLOT('ychange(QTableWidgetItem*)') )
+    connect( self, SIGNAL('cellDoubleClicked(int,int)'), self, SLOT('rowSel(int,int)') )
      @dir = dir
     loaddir( dir )
-    emit testsig(11)
   end
 
   attr_reader :dir
 
-  signals 'fileDoubleClicked(QTableWidgetItem)'
-  signals 'testsig(int)'
-    def wrzl( arg )
-      puts arg
-      emit fileDoubleClicked( arg )
-      emit testsig(13)
-    end
+  def audioFileAt( row )
+    return item( row, @maxCol )
+  end
 
   private
     def loaddir( dir )
       if ( FileTest.directory?( dir ) )
 	af = []
-	Dir["#{dir}/*.[MmOoWw][PpGgMm][3GgAa]"].sort.each do |f|
-	  loadfile( AudioFile.new( f ) )
+	Dir["#{dir}/*.[MmOoWw][PpGgMm][3GgAa]"].each do |f|
+	  af.push( AudioFile.new( f ) )
+	end
+	d = t = nil
+	af.sort!.each do |f|
+	  if ( not d.nil? and d != f.disk )
+	    diskgap
+	  elsif ( not t.nil? and t+1 < f.track )
+	    trackgap
+	  end
+	  d = f.disk
+	  t = f.track
+	  loadfile( f )
 	end
 	setEnabled( true )
       else
@@ -128,28 +151,40 @@ class AudioTable < Qt::TableWidget
       resizeColumnsToContents()
     end
 
-    def loadfile( af )
-      tr = rowCount
-      setRowCount( tr+1 )
-      setItem( tr, 0, Qt::TableWidgetItem.new( af.bitrate ) )
-      setItem( tr, 1, Qt::TableWidgetItem.new( af.frequency ) )
-      setItem( tr, 2, Qt::TableWidgetItem.new( af.chanels ) )
-      setItem( tr, 3, Qt::TableWidgetItem.new( af.duration ) )
-      #setItem( tr, 4, Qt::TableWidgetItem.new( "[#{tr}](#{af.disk})(#{af.track})#{af.name()}" ) )
-      setItem( tr, 4, af )
+    def loadfile( af, gap = 0 )
+      loadfilerow( af, rowCount + gap )
     end
 
-    slots 'xchange(int,int)'
-    def xchange( row, col )
-      puts "(#{row},#{col})"
+    def diskgap()
+      row = rowCount
+      setRowCount( row+1 )
+      setItem( row, 0, Qt::TableWidgetItem.new( "----" ) )
+      setItem( row, 1, Qt::TableWidgetItem.new( "----" ) )
+      setItem( row, 2, Qt::TableWidgetItem.new( "----" ) )
+      setItem( row, 3, Qt::TableWidgetItem.new( "----" ) )
+      setItem( row, 4, Qt::TableWidgetItem.new( "----" ) )
+      setItem( row, 5, Qt::TableWidgetItem.new( "----" ) )
     end
 
+    def trackgap()
+      row = rowCount
+      setRowCount( row+1 )
+    end
 
-    slots 'ychange(QTableWidgetItem*)'
-    def ychange( ti )
-      puts "ychange (#{ti})"
-      emit wrzl( ti )
-      emit fileDoubleClicked( ti )
+    def loadfilerow( af, row )
+      setRowCount( row+1 ) unless ( rowCount > row )
+      setItem( row, 0, Qt::TableWidgetItem.new( af.bitrate ) )
+      setItem( row, 1, Qt::TableWidgetItem.new( af.frequency ) )
+      setItem( row, 2, Qt::TableWidgetItem.new( af.chanels ) )
+      setItem( row, 3, Qt::TableWidgetItem.new( af.duration ) )
+      setItem( row, 4, Qt::TableWidgetItem.new( af.disk.to_s ) )
+      setItem( row, 5, Qt::TableWidgetItem.new( af.track.to_s ) )
+      setItem( row, @maxCol, af )
+    end
+
+    slots 'rowSel(int,int)'
+    def rowSel( row, col )
+      puts "rowSel (#{row},#{col}) #{audioFileAt( row )} "
     end
 end
 
@@ -165,16 +200,16 @@ class AudioDiff < Qt::Widget
 
     vl = Qt::VBoxLayout.new
     vl.addWidget( Qt::Label.new( ldir ) )
-    at = AudioTable.new( ldir )
-    #connect( at, SIGNAL('cellDoubleClicked(int,int)'), self, SLOT('xchange(int,int)') )
-    connect( at, SIGNAL('fileDoubleClicked(QTableWidgetItem)'), self, SLOT('ychange(QTableWidgetItem)') )
-    connect( at, SIGNAL('testsig(int)'), self, SLOT('gtestsig(int)') )
-     vl.addWidget( at )
+    @ltab = at = AudioTable.new( ldir )
+    connect( at, SIGNAL('cellDoubleClicked(int,int)'), self, SLOT('lRowSel(int,int)') )
+    vl.addWidget( at )
     hl.addLayout( vl )
 
     vl = Qt::VBoxLayout.new
     vl.addWidget( Qt::Label.new( rdir ) )
-    vl.addWidget( AudioTable.new( rdir ) )
+    @rtab = at = AudioTable.new( rdir )
+    connect( at, SIGNAL('cellDoubleClicked(int,int)'), self, SLOT('rRowSel(int,int)') )
+    vl.addWidget( at )
     hl.addLayout( vl )
 
     @ldir = ldir
@@ -184,21 +219,14 @@ class AudioDiff < Qt::Widget
   attr_reader :ldir, :rdir
 
   private
-    slots 'xchange(int,int)'
-    def xchange( row, col )
-      puts "Diffsel (#{row},#{col})"
+    slots 'lRowSel(int,int)'
+    def lRowSel( row, col )
+      puts "lRowSel (#{row},#{col}) #{@ltab.audioFileAt( row )} "
     end
-
-    slots 'gtestsig(int)'
-    def gtestsig(i)
-      puts "GTETSIG #{i}"
+    slots 'rRowSel(int,int)'
+    def rRowSel( row, col )
+      puts "rRowSel (#{row},#{col}) #{@rtab.audioFileAt( row )} "
     end
-
-    slots 'ychange(QTableWidgetItem)'
-    def ychange( ti )
-      puts "Diffsel2 (#{ti})"
-    end
-
 end
 
 ############################################################
