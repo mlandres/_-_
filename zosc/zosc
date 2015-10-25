@@ -1,122 +1,21 @@
 #! /usr/bin/python
+import cout
+import cmd
+import osc
+#======================================================================
 
-import subprocess
-import sys, os
-import select
-#import osc
+obs = osc.Obs()
+#isc = obs.Isc()
+
+print obs
+for prj in obs.ls( "^zypp:" ):
+  if prj.name == 'zypp:zc10': continue
+  if prj.name != 'zypp:SLE-11-SP4-Branch': continue
+  print "  %s" % prj
+  for pkg in prj.ls( 'libzypp$' ):
+    print "    %s" % pkg
+    for file in pkg.ls():
+      print "      %s" % file
+
 
 #======================================================================
-class Color:
-  DEF	= "\033[0m"
-  RED	= "\033[31m"
-  BLU	= "\033[34m"
-  GRE	= "\033[32m"
-  CYA	= "\033[36m"
-  MAG	= "\033[35m"
-  WHI	= "\033[37m"
-  BLA	= "\033[30m"
-
-  @classmethod
-  def write( cls, stream, color, *args ):
-    stream.write( color )
-    for arg in args: stream.write( arg )
-    stream.write( cls.DEF )
-
-  @classmethod
-  def wOUT( cls, color, *args ): cls.write( sys.stdout, color, *args )
-  @classmethod
-  def eOUT( cls, color, *args ): cls.write( sys.stderr, color, *args )
-
-  @classmethod
-  def wDEF( cls, *args ): cls.wOUT( cls.DEF, *args )
-  @classmethod
-  def wRED( cls, *args ): cls.wOUT( cls.RED, *args )
-  @classmethod
-  def wBLU( cls, *args ): cls.wOUT( cls.BLU, *args )
-  @classmethod
-  def wGRE( cls, *args ): cls.wOUT( cls.GRE, *args )
-  @classmethod
-  def wCYA( cls, *args ): cls.wOUT( cls.CYA, *args )
-  @classmethod
-  def wMAG( cls, *args ): cls.wOUT( cls.MAG, *args )
-  @classmethod
-  def wWHI( cls, *args ): cls.wOUT( cls.WHI, *args )
-  @classmethod
-  def wBLA( cls, *args ): cls.wOUT( cls.BLA, *args )
-
-  @classmethod
-  def eDEF( cls, *args ): cls.eOUT( cls.DEF, *args )
-  @classmethod
-  def eRED( cls, *args ): cls.eOUT( cls.RED, *args )
-  @classmethod
-  def eBLU( cls, *args ): cls.eOUT( cls.BLU, *args )
-  @classmethod
-  def eGRE( cls, *args ): cls.eOUT( cls.GRE, *args )
-  @classmethod
-  def eCYA( cls, *args ): cls.eOUT( cls.CYA, *args )
-  @classmethod
-  def eMAG( cls, *args ): cls.eOUT( cls.MAG, *args )
-  @classmethod
-  def eWHI( cls, *args ): cls.eOUT( cls.WHI, *args )
-  @classmethod
-  def eBLA( cls, *args ): cls.eOUT( cls.BLA, *args )
-
-#======================================================================
-def readByLine( stream ):
-  while True:
-    line = stream.readline()
-    if line: yield line
-    else: break
-
-def runcmd( *args ):
-  p = subprocess.Popen( args, stdout=subprocess.PIPE, stderr=subprocess.PIPE )
-  reads = [p.stdout.fileno(), p.stderr.fileno()]
-
-  limit = 0
-  while reads:
-    if p.poll() is None:
-      ret = select.select( reads, [], [] )
-    else:
-      ret = [ reads ]
-      reads = None
-
-    for fd in ret[0]:
-      if fd == p.stdout.fileno():
-	for line in readByLine( p.stdout ):
-	  yield line
-      if fd == p.stderr.fileno():
-	for line in readByLine( p.stderr ):
-	  Color.eRED( 'stderr: ', line )
-
-
-    limit -= 1
-    if not limit:
-      print 'limit'
-      break
-
-#======================================================================
-class OSC():
-
-  def __init__( self ):
-    pass
-
-#======================================================================
-class OSCPkg():
-
-  def __init__( self ):
-    pass
-
-#======================================================================
-class OSCPrj():
-
-  def __init__( self ):
-    pass
-
-#======================================================================
-for line in runcmd( 'ls', '-a', '-l', 'zosc', 'foo' ):
-  Color.wBLU( line )
-
-print '0000000000000000000000'
-print osc.ls()
-#print osc._ls()
-
