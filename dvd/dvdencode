@@ -154,7 +154,7 @@ SUBTT=${SUBTT:+--subtitle $SUBTT}
 ANGLE=${ANGLE:+--angle $ANGLE}
 CHAPTER=${CHAPTER:+ --chapters $CHAPTER}
 
-grep -q ',' <<<"$SUBTT" && SUBTT="$SUBTT --subtitle-default"
+#grep -q ',' <<<"$SUBTT" && SUBTT="$SUBTT --subtitle-default"
 
 # audio stream: 0 format: ac3 (stereo) language: de aid: 128.
 # audio stream: 1 format: ac3 (5.1) language: en aid: 129.
