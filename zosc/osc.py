@@ -71,11 +71,36 @@ class Pkg():
   def __init__( self, prj, name  ):
     self.prj = prj
     self.name = name
+    self.__content = None
+    self.__version = None
+    self.__version = None
 
   def ls( self, rx = None ):
-    for line in self.prj.osc._cmd( 'ls', '-u', self.prj.name, self.name ):
+    for line in self._content():
       if rx and not re.match( rx, line ): continue
-      yield Pkg( self, line )
+      yield line
+
+  def version( self ):
+    if self.__version is None:
+      for line in self._content():
+	if ( line[0] == '#'):
+	  self.__version = line
+	  break
+	m = re.search( "-([^-]*)\\.tar", line )
+	if ( m ):
+	  self.__version = m.group( 1 )
+	  break
+
+    return self.__version
+
+  def _content( self ):
+    if self.__content is None:
+      self.__content = list()
+      for line in self.prj.osc._cmd( 'ls', self.prj.name, self.name ):
+	if ( line[0] == '#'): self.__content = list()	# reset on # -> zypp:SLE-11-SP3-Branch libzypp (latest)
+	self.__content.append( line )
+
+    return self.__content
 
   def __str__( self ):
     return self.name

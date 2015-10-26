@@ -7,7 +7,7 @@ import subprocess
 def _readByLine( stream ):
   while True:
     line = stream.readline()
-    if line: yield line[:-1]	# wo. NL
+    if line: yield line
     else: break
 
 #======================================================================
@@ -26,7 +26,7 @@ def run( *args ):
     for fd in ret[0]:
       if fd == p.stdout.fileno():
 	for line in _readByLine( p.stdout ):
-	  yield line
+	  yield line[:-1]	# wo. NL
       if fd == p.stderr.fileno():
 	for line in _readByLine( p.stderr ):
 	  cout.eRED( '*** ', line )

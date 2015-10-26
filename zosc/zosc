@@ -10,12 +10,12 @@ obs = osc.Obs()
 print obs
 for prj in obs.ls( "^zypp:" ):
   if prj.name == 'zypp:zc10': continue
-  if prj.name != 'zypp:SLE-11-SP4-Branch': continue
+  #if prj.name != 'zypp:SLE-11-SP4-Branch': continue
   print "  %s" % prj
-  for pkg in prj.ls( 'libzypp$' ):
-    print "    %s" % pkg
-    for file in pkg.ls():
-      print "      %s" % file
+  for pkg in prj.ls():
+    print "    %-30s\t%s" % ( pkg, pkg.version() )
+    #for file in pkg.ls():
+    #  print "      %s" % file
 
 
 #======================================================================
