@@ -56,49 +56,79 @@ end
 ############################################################
 
 class AudioFile < Qt::TableWidgetItem
-
+  @@n=1
   def initialize( file, parent = nil )
     @file = file
-    @name = File.basename( file )
+    @filename = File.basename( file )
+    @name = @filename
+    @ext  = @name[-3,3]
+    @name = @name[0...-4]
     super( parent, @name )
 
-    tag = @name[/^([0-9]+-)?[0-9]+/]
-    if ( tag.nil? )
+    @tag = @name[/^([0-9]+-)?[0-9]+/]
+    if ( @tag.nil? )
       @disk = @track = 0
     else
-      @disk = tag[/^[0-9]+-/]
+      @name = @name[@tag.length()..-1]
+      @disk = @tag[/^[0-9]+-/]
       if ( @disk.nil? )
 	@disk = 1
       else
 	@disk = @disk[/^[0-9]+/].to_i
       end
-      @track = tag[/[0-9]+$/].to_i
+      @track = @tag[/[0-9]+$/].to_i
     end
 
     tag = cmdstr( "audioinfo '#{escstr(file)}' | grep 'kbs,'" )[0]
     if ( not tag.nil? )
       tag = tag.strip().to_s.split( ', ' )
-      @bitrate   = tag[0]
-      @frequency = tag[1]
+      @bitrate   = "#{@file.size()+@@n} kbps" #tag[0]
+      @frequency = "44900 Hz" #tag[1]
       @chanels   = tag[2]
-      @duration  = tag[3]
+      @duration  = "#{@name.size()+@@n}:13 min." #tag[3]
+    else
+      @bitrate = @file.len
     end
+    @@n += 1
   end
 
-  attr_reader :file, :name, :disk, :track, :bitrate, :frequency, :chanels, :duration
+  attr_reader :file, :filename, :tag, :name, :ext, :disk, :track, :bitrate, :frequency, :chanels, :duration
 
   def valid()
     return @bitrate.nil?
   end
 
   def to_s()
-    return @name
+    return @filename
   end
 
   def <=> ( rhs )
     return self.disk <=> rhs.disk	unless ( self.disk == rhs.disk )
     return self.track <=> rhs.track	unless ( self.track == rhs.track )
-    self.name <=> rhs.name
+    self.filename <=> rhs.filename
+  end
+
+end
+
+
+############################################################
+
+class DiskGap < Qt::TableWidgetItem
+
+  def initialize( disk, parent = nil )
+    super( parent, "(#{disk})========================" )
+    @disk = disk
+    @track = -1
+  end
+
+  attr_reader :disk, :track
+
+  def valid()
+    return False
+  end
+
+  def to_s()
+    return "DiskGap #{@disk}"
   end
 
 end
@@ -106,28 +136,30 @@ end
 ############################################################
 
 class AudioTable < Qt::TableWidget
+  Ifile = 4
 
   def initialize( dir, parent = nil )
     super( parent )
-    @maxCol = 6
-    setColumnCount( @maxCol+1 )
-    horizontalHeader().setStretchLastSection( true )
+    setColumnCount( Ifile+2 )
+    horizontalHeader().setResizeMode( Ifile, Qt::HeaderView::Stretch )
     setEditTriggers( Qt::AbstractItemView::NoEditTriggers )
     setSelectionMode( Qt::AbstractItemView::SingleSelection )
     setSelectionBehavior( Qt::AbstractItemView::SelectRows )
-    connect( self, SIGNAL('cellDoubleClicked(int,int)'), self, SLOT('rowSel(int,int)') )
-     @dir = dir
+    #connect( self, SIGNAL('cellDoubleClicked(int,int)'), self, SLOT('rowSel(int,int)') )
+    @dir = dir
     loaddir( dir )
   end
 
   attr_reader :dir
 
   def audioFileAt( row )
-    return item( row, @maxCol )
+    return item( row, Ifile )
   end
 
   private
     def loaddir( dir )
+    	  x = Qt::TableWidgetItem.new( "foo" )
+	  x.setTextAlignment( Qt::AlignRight|Qt::AlignVCenter )
       if ( FileTest.directory?( dir ) )
 	af = []
 	Dir["#{dir}/*.[MmOoWw][PpGgMm][3GgAa]"].each do |f|
@@ -136,7 +168,7 @@ class AudioTable < Qt::TableWidget
 	d = t = nil
 	af.sort!.each do |f|
 	  if ( not d.nil? and d != f.disk )
-	    diskgap
+	    diskgap( f.disk )
 	  elsif ( not t.nil? and t+1 < f.track )
 	    trackgap
 	  end
@@ -152,18 +184,18 @@ class AudioTable < Qt::TableWidget
     end
 
     def loadfile( af, gap = 0 )
-      loadfilerow( af, rowCount + gap )
+      setFilerow( af, rowCount + gap )
     end
 
-    def diskgap()
+    def diskgap( diskno )
       row = rowCount
       setRowCount( row+1 )
-      setItem( row, 0, Qt::TableWidgetItem.new( "----" ) )
-      setItem( row, 1, Qt::TableWidgetItem.new( "----" ) )
-      setItem( row, 2, Qt::TableWidgetItem.new( "----" ) )
-      setItem( row, 3, Qt::TableWidgetItem.new( "----" ) )
-      setItem( row, 4, Qt::TableWidgetItem.new( "----" ) )
-      setItem( row, 5, Qt::TableWidgetItem.new( "----" ) )
+      setItem( row, 0, Qt::TableWidgetItem.new( "=======" ) )
+      setItem( row, 1, Qt::TableWidgetItem.new( "========" ) )
+      setItem( row, 2, Qt::TableWidgetItem.new( "====" ) )
+      setItem( row, 3, Qt::TableWidgetItem.new( "==========" ) )
+      setItem( row, Ifile, DiskGap.new( diskno ) )
+      setItem( row, 5, Qt::TableWidgetItem.new( "===" ) )
     end
 
     def trackgap()
@@ -171,16 +203,15 @@ class AudioTable < Qt::TableWidget
       setRowCount( row+1 )
     end
 
-    def loadfilerow( af, row )
+    def setFilerow( af, row )
       setRowCount( row+1 ) unless ( rowCount > row )
       setItem( row, 0, Qt::TableWidgetItem.new( af.bitrate ) )
       setItem( row, 1, Qt::TableWidgetItem.new( af.frequency ) )
       setItem( row, 2, Qt::TableWidgetItem.new( af.chanels ) )
       setItem( row, 3, Qt::TableWidgetItem.new( af.duration ) )
-      setItem( row, 4, Qt::TableWidgetItem.new( af.disk.to_s ) )
-      setItem( row, 5, Qt::TableWidgetItem.new( af.track.to_s ) )
-      setItem( row, @maxCol, af )
-    end
+      setItem( row, Ifile, af )
+      setItem( row, 5, Qt::TableWidgetItem.new( af.ext ) )
+   end
 
     slots 'rowSel(int,int)'
     def rowSel( row, col )
@@ -212,17 +243,108 @@ class AudioDiff < Qt::Widget
     vl.addWidget( at )
     hl.addLayout( vl )
 
+    connect( @ltab.verticalScrollBar(), SIGNAL('valueChanged(int)'), @rtab.verticalScrollBar(), SLOT('setValue(int)') )
+    connect( @rtab.verticalScrollBar(), SIGNAL('valueChanged(int)'), @ltab.verticalScrollBar(), SLOT('setValue(int)') )
+
     @ldir = ldir
     @rdir = rdir
+    diffdir
   end
 
   attr_reader :ldir, :rdir
 
   private
+
+    def compItem( col, row, ltab, rtab, locolor, hicolor = locolor )
+      il = ltab.item( row, col )
+      ir = rtab.item( row, col )
+      tl = il.text()
+      tr = ir.text()
+      if ( tl != tr )
+	c = tl.length() <=> tr.length()
+	c = tl <=> tr if ( c == 0 )
+	if ( c < 0 )
+	  il.setTextColor( locolor )
+	  ir.setTextColor( hicolor )
+	else
+	  il.setTextColor( hicolor )
+	  ir.setTextColor( locolor )
+	end
+      end
+    end
+
+    def diffRow( row, ltab, rtab = nil )
+      if ( rtab )
+	c = compItem( 0, row, ltab, rtab, $red, $gre )
+	c = compItem( 1, row, ltab, rtab, $blu )
+	c = compItem( 2, row, ltab, rtab, $blu )
+	c = compItem( 3, row, ltab, rtab, $blu )
+	c = compItem( 4, row, ltab, rtab, $blu )
+	c = compItem( 5, row, ltab, rtab, $blu )
+      else
+	ltab.item( row, 0 ).setTextColor( $gre )
+      end
+    end
+
+    def diffdir()
+      lcnt = @ltab.rowCount
+      rcnt = @rtab.rowCount
+      c = 0
+      while ( c < lcnt or c < rcnt )
+	cincr = 1
+	if ( c < lcnt and c < rcnt )
+	  lf = @ltab.audioFileAt( c )
+	  rf = @rtab.audioFileAt( c )
+	  if ( lf and rf )
+
+	    #puts "#{lf} <> #{rf}"
+	    if lf.disk < rf.disk or ( lf.disk == rf.disk and lf.track < rf.track )
+	      @rtab.insertRow( c )
+	      rcnt += 1
+	      diffRow( c, @ltab )
+
+	    elsif lf.disk > rf.disk or ( lf.disk == rf.disk and lf.track > rf.track )
+	      @ltab.insertRow( c )
+	      lcnt += 1
+	      diffRow( c, @rtab )
+
+	    else
+	      diffRow( c, @ltab, @rtab )
+	    end
+
+	  elsif ( lf )
+	    #puts "#{lf} <> -----"
+	    @rtab.removeRow( c )
+	    rcnt -= 1
+	    cincr = 0
+	  else
+	    #puts "----- <> #{rf}"
+	    @ltab.removeRow( c )
+	    lcnt -= 1
+	    cincr = 0
+	  end
+
+	elsif ( c == lcnt )
+	  #puts "EOT <> #{rf}"
+	  lcnt += 1
+	  @ltab.setRowCount( lcnt )
+	  diffRow( c, @rtab )
+
+	elsif ( c == rcnt )
+	  #puts "#{lf} <> EOT"
+	  rcnt += 1
+	  @rtab.setRowCount( rcnt )
+	  diffRow( c, @ltab )
+	end
+	c += cincr
+      end
+    end
+
     slots 'lRowSel(int,int)'
     def lRowSel( row, col )
       puts "lRowSel (#{row},#{col}) #{@ltab.audioFileAt( row )} "
     end
+
     slots 'rRowSel(int,int)'
     def rRowSel( row, col )
       puts "rRowSel (#{row},#{col}) #{@rtab.audioFileAt( row )} "
@@ -243,20 +365,12 @@ $f = Qt::VBoxLayout.new
 $main.setLayout( $f );
 # --------------------------------------
 
-
-# $fh = Qt::HBoxLayout.new
-# $f.addLayout( $fh )
-#
-# $fl = Qt::VBoxLayout.new
-# $fr = Qt::VBoxLayout.new
-# $fh.addLayout( $fl )
-# $fh.addLayout( $fr )
-
 ARGV[1] = ARGV[0] if ( not ARGV[1] )
 #$ma = MAction.new( ARGV[0], ARGV[1] )
 
 $audiodiff = AudioDiff.new( ARGV[0], ARGV[1] )
 $f.addWidget( $audiodiff )
+
 
 # $ll = Mp3Table.new( $ma.ldir )
 # Qt::Object.connect( $ll, SIGNAL('cellDoubleClicked(int,int)'), $ma, SLOT('xchange(int,int)') )
