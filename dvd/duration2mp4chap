@@ -1,0 +1,36 @@
+#! /bin/bash
+#
+# Durations from stdin:
+# 00:10:16
+# 00:11:51
+# 00:08:22
+# To chapters on stdout:
+# 00:00:00.000 Chapter 1
+# 00:10:01.248 Chapter 2
+# 00:20:02.808 Chapter 3
+
+awk -F ':' '
+  BEGIN {
+    cc = 1
+    dh = dm = ds = 0
+    printf "%02d:%02d:%02d.000 Chapter %d \n", dh, dm, ds, cc
+  }
+  /^00:00:00$/ { next }
+  /^[0-9]{2}:[0-9]{2}:[0-9]{2}/ {
+
+    cc += 1
+    ds += $3
+    dm += $2
+    dh += $1
+    if ( int(ds/60) ) {
+      dm += int(ds/60)
+      ds = ds % 60
+    }
+    if ( int(dm/60) ) {
+      dh += int(dm/60)
+      dm = dm % 60
+    }
+    #printf "[%s] %02d:%02d:%02d.000 Chapter %d \n", $0, dh, dm, ds, cc
+    printf "%02d:%02d:%02d.000 Chapter %d \n", dh, dm, ds, cc
+  }
+'

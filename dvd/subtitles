@@ -1,0 +1,3 @@
+
+mencoder -o /dev/null dvd://2 -dvd-device ./01/ -oac copy -ovc copy -vobsuboutid de -vobsubout subtitle -sid 2
+vobsub2pgm -i 01/VIDEO_TS/VTS_02_0.IFO subtitle xx

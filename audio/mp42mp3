@@ -1,0 +1,11 @@
+#! /bin/bash
+for F in "$@"; do
+	O="$(dirname "$F")/$(basename "$F" .mp4).mp3"
+	test -e "$O" && {
+		echo "File exists. Skipping $O"
+		continue
+	}
+	mplayer -vo null -vc dummy -af resample=44100 -ao pcm:waveheader "$F" \
+	&& lame -m s --preset standard audiodump.wav -o "$O"
+done
+rm audiodump.wav
