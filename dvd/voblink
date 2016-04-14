@@ -1,0 +1,22 @@
+#! /bin/bash
+
+# $1 md5
+# $2 file
+md5sum * | awk '
+  ( NF != 2 ) {
+    printf "### SKIP WS IN FILE %s\n", $0
+    next
+  }
+  {
+    if ( lmd5[$1] == "" )
+    {
+      printf "# %s\n", $0
+      lmd5[$1] = $2
+    }
+    else
+    {
+      printf "# %s\t-> %s\n", $0, lmd5[$1]
+      print system( "ln -f '\''"  lmd5[$1]  "'\'' '\''"  $2  "'\''" )
+    }
+  }
+'

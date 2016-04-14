@@ -1,0 +1,35 @@
+#! /bin/bash
+# dirify [dir] movie.mp4..
+
+TDIR="$1"
+# TDIR explicit or derivedfrom 1st file
+if [ -f "$TDIR" ]; then
+  TDIR="$(dirname "$TDIR")/$(basename "$TDIR" .mp4)"
+  if [ -f "$TDIR" ]; then
+    errexit "TDIR $TDIR is a file"
+  fi
+else
+  shift
+fi
+
+Becho "using TDIR '$TDIR'"
+test -d "$TDIR" || mkdir -p "$TDIR"
+
+for f in "$@"; do
+  test -f "$f" || Recho "Skip no file '$f'"
+  mv -i "$f" "$TDIR"
+  f="$TDIR/$(basename "$f")"
+  mp4art --extract "$f"
+done
+
+posterize "$TDIR"
+test -f "$TDIR/folder.jpg" || {
+  Becho "ceating $TDIR/folder.jpg"
+  for f in "$TDIR"/*.jpg; do
+    test -f "$f" || continue
+    cp -v "$f" "$TDIR/folder.jpg"
+    break
+  done
+}
+
+ls -l "$TDIR"

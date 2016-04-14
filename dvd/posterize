@@ -1,0 +1,13 @@
+#! /bin/bash
+if [ -n "$1" ]; then
+  if [ -d "$1" ]; then
+    cd "$1"
+    mp4art --extract *mp4
+  else
+    errexit "Argument '$1' is not a directory"
+  fi
+fi
+
+for f in *.art\[0\].jpg; do
+	mv "$f" "$(sed 's/\.art\[0\]\./-poster./'<<<"$f" )"
+done

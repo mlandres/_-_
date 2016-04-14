@@ -1,0 +1,10 @@
+#! /bin/bash
+for M in "$@"; do
+  ffmpeg -i "$M" 2>&1 | grep 'Stream #'
+  M4="$(basename "$M" .mpg).mp4"
+  CF="$(basename "$M" .mpg).jpg"
+  ffmpeg -i "$M" -map 0:0 -map 0:1 -codec copy "$M4"
+  test -f "$M4" || continue
+  test -f "$CF" && mp4art --add "$CF" "$M4"
+  test -d VOB && mv "$M" "$CF" VOB
+done
