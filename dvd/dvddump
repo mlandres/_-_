@@ -86,18 +86,24 @@ else
     end
   end
 
-  cmd = "dvdbackup --progress --mirror --input #{Shellwords.escape($opts.input)} --name #{Shellwords.escape(output)}"
+  tmpout = "dvdvackup-#{$$}"
+
+  cmd = "dvdbackup --progress --mirror --input #{Shellwords.escape($opts.input)} --name #{tmpout}"
   puts cmd
   if system( cmd )
-    cmd = "HandBrakeCLI --scan --title 0 --input #{Shellwords.escape(output)} 2>#{Shellwords.escape(output)}/scan"
+    cmd = "mv -T #{tmpout} #{Shellwords.escape(output)}"
     puts cmd
-    system( cmd )
-    if  File.exist?( output+".jpg" )
-      cmd = "mv -v #{Shellwords.escape(output)}.jpg #{Shellwords.escape(output)}/cover.jpg"
+    if system( cmd )
+      cmd = "HandBrakeCLI --scan --title 0 --input #{Shellwords.escape(output)} 2>#{Shellwords.escape(output)}/scan"
       puts cmd
       system( cmd )
+      if  File.exist?( output+".jpg" )
+	cmd = "mv -v #{Shellwords.escape(output)}.jpg #{Shellwords.escape(output)}/cover.jpg"
+	puts cmd
+	system( cmd )
+      end
+      system( 'sudo eject' )
     end
-    system( 'sudo eject' )
   end
 
 end
