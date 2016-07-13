@@ -410,7 +410,7 @@ proc start_rev_list {view} {
     }
 
     if {[catch {
-	set fd [open [concat | git log --no-color -z --pretty=raw $show_notes \
+	set fd [open [concat | git-malog --no-color -z --pretty=raw $show_notes \
 			--parents --boundary $args "--" $files] r]
     } err]} {
 	error_popup "[mc "Error executing git log:"] $err"
@@ -558,7 +558,7 @@ proc updatecommits {} {
 	set args $vorigargs($view)
     }
     if {[catch {
-	set fd [open [concat | git log --no-color -z --pretty=raw $show_notes \
+	set fd [open [concat | git-malog --no-color -z --pretty=raw $show_notes \
 			--parents --boundary $args "--" $vfilelimit($view)] r]
     } err]} {
 	error_popup "[mc "Error executing git log:"] $err"
@@ -1509,6 +1509,12 @@ proc getcommitlines {fd inst view updating}  {
 	    error_popup "[mc "Can't parse git log output:"] {$shortcmit}"
 	    exit 1
 	}
+# 	# ma@suse.de: Filter out Weblate commits
+# 	if {[string first "committer openSUSE Weblate" $cmit] != -1} {
+# 	  puts	"==============================================="
+# 	  puts	$cmit
+# 	  //continue
+# 	}
 	set id [lindex $ids 0]
 	set vid $view,$id
 
@@ -1643,7 +1649,7 @@ proc do_readcommit {id} {
     global tclencoding
 
     # Invoke git-log to handle automatic encoding conversion
-    set fd [open [concat | git log --no-color --pretty=raw -1 $id] r]
+    set fd [open [concat | git-malog --no-color --pretty=raw -1 $id] r]
     # Read the results using i18n.logoutputencoding
     fconfigure $fd -translation lf -eofchar {}
     if {$tclencoding != {}} {
@@ -1702,6 +1708,13 @@ proc parsecommit {id contents listed} {
     if {$i >= 0} {
 	set headline [string trimright [string range $headline 0 $i]]
     }
+
+#     # ma@suse: filter weblate noise
+#     if {[string first "openSUSE Weblate" $comname] == 0} {
+#       set headprfx "........................................................................................................................................................................................................"
+#       set headline [concat $headprfx [string map {"Translated using Weblate" ""} $headline]]
+#     }
+
     if {!$listed} {
 	# git log indents the comment by 4 spaces;
 	# if we got this via git cat-file, add the indentation
