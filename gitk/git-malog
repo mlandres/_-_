@@ -1,0 +1,177 @@
+#! /bin/bash
+if true; then
+  git log --date-order "$@"
+  #| tee ~/src/_-_/gitk/outp
+else
+  cat ~/src/_-_/gitk/outp
+fi \
+| awk '
+  BEGIN {
+    PFX = "......................................."
+    PFX = ".........................................................................................................................................................................................................................................."
+    pidx[1] = "@1@"		# parent commit placeholder
+    pidx[2] = "@2@"
+    rope[0]; delete rope[0]	# is array
+  }
+
+  function oops( m ) {
+    print "========================================="
+    printAllRopes()
+    print "========================================="
+    popAllRopes()
+    print "========================================="
+    sub( "\n    ", "\n    ***OOPS "m"***", cmitdta )
+    print cmitdta
+    exit 99;
+  }
+
+  function incrRef( a, i, v ) { if ( i ) { if ( a[i] ) a[i] += v; else a[i] = v; } }
+  function incrInRef( i )     { incrRef( inref, i, 1 ) }
+  function incrOutRef( i, v ) { incrRef( outref, i, v ) }
+
+  function printRope( c )
+  {
+    print "Rope "c":"
+    print "     d "length(rope[c]["d"])"@"
+    print "     1 "rope[c]["p"][1]"@"
+    print "     2 "rope[c]["p"][2]"@"
+  }
+
+  function printAllRopes()
+  {
+    for ( i = ropeT["min"]; i <= ropeT["max"]; ++i )
+    {
+      print "->"i
+      printRope( ropeT[i] )
+    }
+  }
+
+  # --------------------------------------------------
+
+  function ljoin( l, r ) {
+    if ( l && r ) return l"\n"r
+    return l ? l : r
+  }
+
+  function ropesWaiting()
+  {
+    delete waitingRopes
+    for ( r in rope )
+    {
+      if ( rope[r]["p"][1] == cmitidx )	waitingRopes[r] = 1
+    }
+    return length( waitingRopes )
+  }
+
+  # --------------------------------------------------
+
+  function pushNewRope()
+  {
+    if ( cmitp[2] ) { oops("no_p2") }
+    if ( !weblate ) { oops("no_w") }
+
+    #sub( "\n    ", "\n    (P)", cmitdta )
+    rope[cmitidx]["w"] = 1
+    rope[cmitidx]["d"] = cmitdta
+    rope[cmitidx]["p"][1] = cmitp[1]
+    sub( cmitidx"[ a-z0-9]*",cmitidx" @1@ @2@", rope[cmitidx]["d"] )
+  }
+
+  # --------------------------------------------------
+
+  function pushToRope( r )
+  {
+    if ( cmitp[2] ) { oops("no_p2") }
+    if ( !weblate ) { oops("no_w") }
+
+    if ( dbg )
+    {
+      sub( "\n    ", "\n    (-)", cmitdta )
+      rope[r]["d"] = ljoin( rope[r]["d"], cmitdta )
+    }
+    rope[r]["w"] += 1
+    rope[r]["p"][1] = cmitp[1]
+  }
+
+
+  # --------------------------------------------------
+
+  function popRope( r )
+  {
+    #sub( "\n    ", "\n    ["rope[r]["w"]"]", rope[r]["d"] )
+    sub( "@1@", rope[r]["p"][1], rope[r]["d"] )
+    sub( "@2@", rope[r]["p"][2], rope[r]["d"] )
+    print rope[r]["d"]
+    delete rope[r]
+  }
+
+  function popAllRopes()
+  { for ( r in rope ) { popRope( r ) } }
+
+  # --------------------------------------------------
+
+  function cmitFinish()
+  {
+    if ( ! cmitidx )
+      return
+
+    #if ( weblate ) { sub( "\n    ", "\n    ("inref[cmitidx]"-"outref[cmitidx]")", cmitdta ) }
+
+    if ( ! ropesWaiting() )
+    {
+      pushable = ( weblate && outref[cmitidx] < 2 )
+      if ( pushable )
+      {
+	pushNewRope();
+      }
+      else
+      {
+	print cmitdta
+      }
+    }
+    else
+    {
+      if ( weblate && inref[cmitidx] == 1 && outref[cmitidx] < 2 )
+      {
+	for ( r in waitingRopes ) { pushToRope( r ) }
+      }
+      else
+      {
+	for ( r in waitingRopes ) { popRope( r ) }
+	print cmitdta
+      }
+    }
+  }
+
+  # --------------------------------------------------
+  /^tree /	{ next }
+  /^parent /	{ next }
+  /^committer openSUSE Weblate/	{ weblate = 1 }
+
+  /^.?commit /	{
+    cmitFinish()
+
+    cmitidx  = $2	# this commit
+    cmitp[1] = $3	# 1st parent or nil
+    cmitp[2] = $4	# 2nd parent or nil
+    cmitdta  = $0	# collected commitdata to write
+    weblate  = 0	# squashable commit
+
+    incrOutRef( cmitidx, ( cmitp[2] ? 2 : (cmitp[1] ? 1 : 0) ) )
+    incrInRef( cmitp[1] )
+    incrInRef( cmitp[2] )
+
+    next
+  }
+
+  {
+    sub( "Translated using Weblate .*",		PFX" weblate ", $0 )
+    sub( "Merge remote-tracking branch",	PFX" weblate merge", $0 )
+    cmitdta = cmitdta "\n" $0
+  }
+
+  END	{
+    cmitFinish()
+    popAllRopes()
+  }
+'
