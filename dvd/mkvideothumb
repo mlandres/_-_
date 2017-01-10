@@ -21,7 +21,7 @@ Usage: $(basename $0) [$OPTSTR] VIDEOFILE
   -s	Number of seconds to skip before creating
 	the thumbnails ($TMB_START)
   Generate thumnails from videofile. Thumbnail is scaled to
-  fit box 320x320 and stored in .mp4 or as VIDEOFILE.jpg for
+  fit box 680x1000 and stored in .mp4 or as VIDEOFILE.jpg for
   other formats.
 
   for f in *mp4; do mp4info "\$f" | grep -q 'Cover Art pieces:' || mkvideothumb "\$f"; done
@@ -70,7 +70,7 @@ function convthumb()
 {
   local INP="$1"
   if [ -f "$INP" ]; then
-    convert -size 320x320 "$INP" -thumbnail 320x320\> /tmp/mkthumb.jpg
+    convert -size 680x1000 "$INP" -thumbnail 680x1000\> /tmp/mkthumb.jpg
   else
     rm -f /tmp/mkthumb.jpg
   fi
