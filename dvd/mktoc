@@ -107,7 +107,7 @@ $opts.tags.each do |tags|
   else
     trgfile = "%s%s%s" % [ $opts.prefix, tags[:t], trgext ]
   end
-  trgfile.tr!( ':/', '_' )
+  trgfile.tr!( ':/\'?', '_' )
 
   if tags[:f] != trgfile
     command "mv -v #{Shellwords.escape(tags[:f])} #{Shellwords.escape(trgfile)}"
