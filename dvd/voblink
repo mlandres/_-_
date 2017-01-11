@@ -1,22 +1,25 @@
 #! /bin/bash
 
-# $1 md5
-# $2 file
-md5sum * | awk '
-  ( NF != 2 ) {
-    printf "### SKIP WS IN FILE %s\n", $0
-    next
-  }
+function checksums()
+{
+  for f in VIDEO_TS* VTS_*; do
+    head -c 10M $f | md5sum | sed 's/-$/'$f'/'
+  done
+}
+
+checksums	\
+| sort	\
+| awk '
   {
-    if ( lmd5[$1] == "" )
+    if ( $1 != lc )
     {
+      lc = $1
+      lf = $2
       printf "# %s\n", $0
-      lmd5[$1] = $2
     }
     else
     {
-      printf "# %s\t-> %s\n", $0, lmd5[$1]
-      print system( "ln -f '\''"  lmd5[$1]  "'\'' '\''"  $2  "'\''" )
+      printf "ln -f %s %s\n", lf, $2
     }
   }
 '
