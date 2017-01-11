@@ -190,6 +190,6 @@ if [ -z "$PREVIEW" ]; then
     echo "Using thumbnail $OUTIMAGE..."
     convert -size 680x1000 "$OUTIMAGE" -thumbnail 680x1000\> "$OUTFILE"-poster.jpg
     mp4art --add "$OUTFILE"-poster.jpg "$OUTFILE".mp4
-    #rm "$OUTFILE".jpg
+    rm "$OUTFILE"-poster.jpg
   fi
 fi
