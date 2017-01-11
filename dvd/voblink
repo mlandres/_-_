@@ -7,6 +7,12 @@ function checksums()
   done
 }
 
+if [ -d "$1" ]; then
+  echo "cd '$1'"
+  cd "$1"
+fi
+
+echo "du -sh ."
 checksums	\
 | sort	\
 | awk '
@@ -23,3 +29,4 @@ checksums	\
     }
   }
 '
+echo "du -sh ."
