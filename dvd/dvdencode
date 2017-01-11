@@ -184,6 +184,7 @@ $DRYRUN HandBrakeCLI	\
   --output "$OUTFILE".mp4
 
 if [ -z "$PREVIEW" ]; then
+  mp4tags -song "$DVDTILE" "$OUTFILE".mp4
   test -f "$OUTIMAGE" || OUTIMAGE="$DVDPATH/cover-$DVDTILE.jpg"
   test -f "$OUTIMAGE" || OUTIMAGE="$DVDPATH/cover.jpg"
   if [ -f "$OUTIMAGE" ]; then
