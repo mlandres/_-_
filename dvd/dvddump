@@ -12,11 +12,12 @@ $opts.autonum	= false
 
 OptionParser.new do |o|
   begin
-    o.banner += ' [<name>]'
+    o.banner += ' [<name> [<coverart>]]'
     o.separator 'Vobcopy a DVD to directory <name>. If no <name> is specified,'
     o.separator 'just scan the imput device. If an empty <name> is specified'
     o.separator 'auto-numbering is enforced (NN).'
-    o.separator 'If an image named <name>.jpg exists move it to <name>/cover.jpg.'
+    o.separator 'If <coverart> is specified or an image named <name>.jpg exists'
+    o.separator 'move it to <name>/cover.jpg.'
     o.separator 'Options:'
 
     o.on('-i','--input <path>',String,'Set input device (default: '"#{$opts.input}"')') do |arg|
@@ -38,6 +39,8 @@ OptionParser.new do |o|
     # ======================================================================
     # handle non option args
     $opts.output = ARGV.shift			if ARGV and not ARGV.empty?
+    $opts.outjpg = $opts.output+".jpg"
+    $opts.outjpg = ARGV.shift			if ARGV and not ARGV.empty?
     raise OptionParser::NeedlessArgument, ARGV	if not ARGV.empty?
 
     if not $opts.output
@@ -97,8 +100,8 @@ else
       cmd = "HandBrakeCLI --scan --title 0 --input #{Shellwords.escape(output)} 2>#{Shellwords.escape(output)}/scan"
       puts cmd
       system( cmd )
-      if  File.exist?( output+".jpg" )
-	cmd = "mv -v #{Shellwords.escape(output)}.jpg #{Shellwords.escape(output)}/cover.jpg"
+      if  File.exist?( $opts.outjpg )
+	cmd = "mv -v #{Shellwords.escape($opts.outjpg)} #{Shellwords.escape(output)}/cover.jpg"
 	puts cmd
 	system( cmd )
       end
