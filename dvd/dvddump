@@ -38,9 +38,14 @@ OptionParser.new do |o|
     o.parse!
     # ======================================================================
     # handle non option args
-    $opts.output = ARGV.shift			if ARGV and not ARGV.empty?
-    $opts.outjpg = $opts.output+".jpg"
-    $opts.outjpg = ARGV.shift			if ARGV and not ARGV.empty?
+    if ARGV and not ARGV.empty?
+      $opts.output = ARGV.shift
+      if not ARGV.empty?
+	$opts.outjpg = ARGV.shift
+      else
+	$opts.outjpg = $opts.output+".jpg"
+      end
+    end
     raise OptionParser::NeedlessArgument, ARGV	if not ARGV.empty?
 
     if not $opts.output
