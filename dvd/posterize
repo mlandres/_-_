@@ -1,13 +1,30 @@
 #! /bin/bash
-if [ -n "$1" ]; then
-  if [ -d "$1" ]; then
-    cd "$1"
-    mp4art --extract *mp4
-  else
-    errexit "Argument '$1' is not a directory"
-  fi
-fi
 
-for f in *.art\[0\].jpg; do
-	mv "$f" "$(sed 's/\.art\[0\]\./-poster./'<<<"$f" )"
+test "$1" == "-d" && {
+  TODIR=1
+  shift
+}
+
+for MOVIE in "$@"; do
+  test -f "$MOVIE" || {
+    echo "SKIP: not exists: $MOVIE" >&2
+    continue
+  }
+  MDIR="$(dirname "$MOVIE")"
+  MNAM="$(basename "$MOVIE" .mp4)"
+
+  if [ "$TODIR" ]; then
+    test -d "$MDIR/$MNAM" || mkdir "$MDIR/$MNAM"
+    mv "$MOVIE" "$MDIR/$MNAM"
+    MDIR="$MDIR/$MNAM"
+    MOVIE="$MDIR/$MNAM.mp4"
+  fi
+
+  if [ ! -e "$MDIR/$MNAM-poster.jpg" ]; then
+    mp4art --extract "$MOVIE"
+    mv "$MDIR/$MNAM.art[0].jpg" "$MDIR/$MNAM-poster.jpg"
+    if [ ! -e "$MDIR/$MNAM-poster.jpg" ]; then
+      echo "NO POSTER: $MOVIE" >&2
+    fi
+  fi
 done
