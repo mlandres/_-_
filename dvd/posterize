@@ -25,6 +25,10 @@ for MOVIE in "$@"; do
     mv "$MDIR/$MNAM.art[0].jpg" "$MDIR/$MNAM-poster.jpg"
     if [ ! -e "$MDIR/$MNAM-poster.jpg" ]; then
       echo "NO POSTER: $MOVIE" >&2
+    elif [ "$TODIR" ]; then
+      if [ ! -e "$MDIR/folder.jpg" ]; then
+	ln "$MDIR/$MNAM-poster.jpg" "$MDIR/folder.jpg"
+      fi
     fi
   fi
 done
