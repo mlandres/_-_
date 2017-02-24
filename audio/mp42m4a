@@ -1,0 +1,9 @@
+#! /bin/bash
+for F in "$@"; do
+	O="$(dirname "$F")/$(basename "$F" .mp4).m4a"
+	test -e "$O" && {
+		echo "File exists. Skipping $O"
+		continue
+	}
+	ffmpeg -i "$F" -c:a copy -vn -sn "$O"
+done
