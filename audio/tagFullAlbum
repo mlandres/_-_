@@ -1,0 +1,34 @@
+#! /bin/bash
+
+INP="$1"
+test -f "$INP" || errexit "No INP: $INP"
+
+BN="$(basename "$INP")"
+EXT="$(sed 's/.*\././' <<<"$BN")"
+
+test "$EXT" == ".m4a" || errexit "No .m4a: $INP"
+
+BN="$(sed 's/\.m4a$//' <<<"$BN")"
+
+ART="$(sed 's/ [-@] .*//' <<<"$BN")"
+ALB="$(sed 's/.* [-@] //;s/ (full album)//' <<<"$BN")"
+
+if grep -q '\<[0-9][0-9][0-9][0-9][-:]' <<<"$ALB"; then
+  SNG="(full concert)"
+  ONG=""
+else
+  SNG="(full album)"
+  ONG=" (full album)"
+fi
+
+Becho "$INP"
+Gecho "ARTIST:  $ART"
+Gecho "ALBUM:   $ALB"
+Gecho "SONG:    $SNG"
+
+OUT="$ART @ $ALB$ONG.m4a"
+
+Recho "mp4tags -a '$ART' -R '$ART' -A '$ALB' -t 0 -s '$SNG' '$INP'"
+if [ "$OUT" != "$INP" ]; then
+  Recho "mv '$INP' '$OUT'"
+fi
