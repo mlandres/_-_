@@ -1,32 +1,47 @@
 #! /bin/bash
 
-test "$#" -lt "2" && errexit "Usage: albumcopy SRC... DST"
+DODOSNAM=
+DOARTIST=
+test "$1" == "-p" && { DOARTIST=1; shift; }
+test "$#" -lt "2" && errexit "Usage: albumcopy [-p] SRC... DST"
 
-function fullPath() (
-  cd "$1"
-  pwd -P
-)
+function fullPath() ( cd "$1"; pwd -P; )
 
-function numMP3() {
-  ls "$1"/*{mp3,wma} | wc -l
+function dosify()
+{
+  if [ $DODOSNAM ]; then
+    tr '"*+,/:;<=>?\\[]|' '_'
+  else
+    cat
+  fi
 }
 
 DST="${!#}"
 test -d "$DST" || errexit "No DST dir '$DST'"
+if [ "$(df --output=fstype "$DST" | tail -n 1)" == "vfat" ]; then
+  DODOSNAM=1
+fi
 
 for SRC; do
   test "$SRC" == "$DST" && continue
-
   test -d "$SRC" || { echo "No SRC dir '$SRC'" >&2; continue; }
-  test "$(numMP3 "$SRC")" == "0" && { echo "No MP3 dir '$SRC'" >&2; continue; }
 
   SRC="$(fullPath "$SRC")"
-  ALB="$(basename "$SRC")"
-  ART="$(basename "$(dirname "$SRC")")"
+  ALB="$(basename "$SRC" | dosify)"
+  TRG="$DST"
 
-  TRG="$DST/$ART"
-  test -d "$TRG" || mkdir "$TRG"
+  if [ $DOARTIST ]; then
+    ART="$(basename "$(dirname "$SRC")" | dosify)"
+    TRG="$TRG/$ART"
+  fi
+  test -d "$TRG" || mkdir -p "$TRG"
+
   test -d "$TRG/$ALB" && { echo "TRG dir exists '$TRG/$ALB'" >&2; continue; }
-  echo "$SRC ->  $TRG"
-  cp -a "$SRC" "$TRG"
+  TRG="$TRG/$ALB"
+  mkdir "$TRG"
+
+  for F in "$SRC"/*; do
+    test -f "$F" || continue
+    cp -vi "$F" "$TRG/$(basename "$F" | dosify)"
+  done
 done
