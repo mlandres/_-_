@@ -1,0 +1,32 @@
+#! /bin/bash
+
+test "$#" -lt "2" && errexit "Usage: albumcopy SRC... DST"
+
+function fullPath() (
+  cd "$1"
+  pwd -P
+)
+
+function numMP3() {
+  ls "$1"/*{mp3,wma} | wc -l
+}
+
+DST="${!#}"
+test -d "$DST" || errexit "No DST dir '$DST'"
+
+for SRC; do
+  test "$SRC" == "$DST" && continue
+
+  test -d "$SRC" || { echo "No SRC dir '$SRC'" >&2; continue; }
+  test "$(numMP3 "$SRC")" == "0" && { echo "No MP3 dir '$SRC'" >&2; continue; }
+
+  SRC="$(fullPath "$SRC")"
+  ALB="$(basename "$SRC")"
+  ART="$(basename "$(dirname "$SRC")")"
+
+  TRG="$DST/$ART"
+  test -d "$TRG" || mkdir "$TRG"
+  test -d "$TRG/$ALB" && { echo "TRG dir exists '$TRG/$ALB'" >&2; continue; }
+  echo "$SRC ->  $TRG"
+  cp -a "$SRC" "$TRG"
+done
