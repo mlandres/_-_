@@ -1,0 +1,9 @@
+#! /bin/bash
+
+function lastOne()
+{
+  ls -tr | grep -v '\.toc$' | tail -n 1
+}
+
+INP="${1:-$(lastOne)}.toc"
+vi "$INP"
