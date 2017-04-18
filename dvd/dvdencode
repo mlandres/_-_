@@ -54,6 +54,7 @@ DVDPATH are auto added as thumbnail.
 
   -a <list>	Audio stream ids to rip (,-separated list; default: 1)
   -c <chapters>	Select chapters (e.g. "1-3" or just "3"; default: all chapters)
+  -D		No dvdnav
   -g <num>	Angle to rip (default: 1)
   -i <file>	Cover image to use as thumbnail
   -n		Dry run; just echo command
@@ -92,8 +93,9 @@ OUTIMAGE=""
 
 DRYRUN=""
 PREVIEW=""
+NODVDNAV=""
 
-OPTSTR="a:c:g:i:no:ps:t:h"
+OPTSTR="a:c:Dg:i:no:ps:t:h"
 if [ -n "$OPTSTR" ]; then
   while getopts "$OPTSTR" OPTNAME; do
     test "${OPTARG:0:1}" = "-" && errexit -u "Illegal argument to -$OPTNAME: '$OPTARG'"
@@ -103,6 +105,9 @@ if [ -n "$OPTSTR" ]; then
 	;;
       c)
 	CHAPTER="$OPTARG"
+	;;
+      D)
+	NODVDNAV="--no-dvdnav"
 	;;
       g)
 	ANGLE="$OPTARG"
@@ -179,6 +184,7 @@ $DRYRUN HandBrakeCLI	\
   $AUDIO	\
   --loose-anamorphic	\
   $SUBTT	\
+  $NODVDNAV	\
   --input "$DVDPATH"	\
   --markers --large-file --optimize	\
   --output "$OUTFILE".mp4
