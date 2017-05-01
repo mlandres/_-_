@@ -1,34 +1,191 @@
-#! /bin/bash
+#! /usr/bin/python
 
-INP="$1"
-test -f "$INP" || errexit "No INP: $INP"
+import sys, os, time, random
+from PyQt4 import QtCore
+from PyQt4.QtCore import *
+from PyQt4 import QtGui
+from PyQt4.QtGui import *
 
-BN="$(basename "$INP")"
-EXT="$(sed 's/.*\././' <<<"$BN")"
+#======================================================================
 
-test "$EXT" == ".m4a" || errexit "No .m4a: $INP"
+# Full Album:	"<artist>/<album> [full album].<ext>"
+#	artist
+#	aartist	=""
+#	album
+#	song	="[full album]"
+#
+# Full Video:	"MusicVideo/<artist>/<album>.<ext>"
+#		"MusicVideo/<artist>/<album>-poster.jpg"
+#
+#		"<MusicVideo/artist>/<album>/<part>.<ext>"
+#		"<MusicVideo/artist>/<album>/<part>-poster.jpg"
+#	artist
+#	aartist	=""
+#	album
+#	song	="[full video]"
+#
+# Video Clip:	"MusicClips/<artist> - <song>.<ext>"
+#	artist
+#	aartist	=""
+#	album	=""
+#	song
+#
 
-BN="$(sed 's/\.m4a$//' <<<"$BN")"
+#======================================================================
 
-ART="$(sed 's/ [-@] .*//' <<<"$BN")"
-ALB="$(sed 's/.* [-@] //;s/ (full album)//' <<<"$BN")"
+def em( w, count = 1 ):
+  '''Size of <count> m's in the widgets font (1 extra for spacing). '''
+  return QFontMetrics( w.font() ).width("m") * (count+1)
 
-if grep -q '\<[0-9][0-9][0-9][0-9][-:]' <<<"$ALB"; then
-  SNG="(full concert)"
-  ONG=""
-else
-  SNG="(full album)"
-  ONG=" (full album)"
-fi
+#======================================================================
 
-Becho "$INP"
-Gecho "ARTIST:  $ART"
-Gecho "ALBUM:   $ALB"
-Gecho "SONG:    $SNG"
+class MediaFile( object ):
 
-OUT="$ART @ $ALB$ONG.m4a"
+  def __init__( self, path = None ):
+    self._oVal = {}
+    if path:
+      self._oVal['srcdir']	= os.path.dirname( path )
+      self._oVal['srcname'], self._oVal['srcext'] = os.path.splitext( os.path.basename( path ) )
+      self._oVal['destdir']	= self._oVal['srcdir']
+      self._oVal['destname']	= self._oVal['srcname']
+      self._oVal['destext']	= self._oVal['srcext']
+      self._oVal['aartist']	= 'test'
 
-Recho "mp4tags -a '$ART' -R '$ART' -A '$ALB' -t 0 -s '$SNG' '$INP'"
-if [ "$OUT" != "$INP" ]; then
-  Recho "mv '$INP' '$OUT'"
-fi
+    self._val = self._oVal.copy()
+
+  def oget( self, attr, default = None ):
+    return self._oVal.get( attr, default )
+
+  def get( self, attr, default = None ):
+    return self._val.get( attr, default )
+
+  def set( self, attr, val ):
+    self._val[attr] = val
+
+  def changed( self, attr ):
+    return self._val.get( attr, None ) != self._oVal.get( attr, None )
+
+  def differs( self, attr, val ):
+    return val != self._oVal.get( attr, None )
+
+#======================================================================
+
+class MFProperty( QLineEdit ):
+
+  def __init__( self, attr, mediafile ):
+    QLineEdit.__init__( self )
+    self.editingFinished.connect( self._editingFinished )
+    self.textChanged.connect( self._textChanged )
+
+    self._attr	= attr
+    self.setmf( mediafile )
+
+  def setmf( self, mediafile ):
+    self._mf = mediafile
+    self.setPlaceholderText( self._mf.oget( self._attr, '' ) )
+    self.setText( self._mf.get( self._attr, '' ) )
+
+  def _editingFinished( self ):
+    print 'editingFinished %s' % self._attr
+
+  def _textChanged( self, text ):
+    if self._mf.differs( self._attr, text ):
+      self.setStyleSheet( 'color: red;' );
+    else:
+      self.setStyleSheet( 'color: black;' );
+
+#======================================================================
+class MainWindow( QMainWindow ):
+
+  def __init__( self ):
+    QMainWindow.__init__( self )
+
+    self.setFocus()
+    self.statusBar()
+    self.statusMsg = QLabel()
+    self.statusBar().addWidget( self.statusMsg, 1 )
+
+    self.mediaFile = MediaFile()
+    self.mfProperty = {}
+
+    f = QFrame()
+    fg = QGridLayout()
+
+    tags = [
+      'srcdir',
+      'srcname',
+      'srcext',
+      'destdir',
+      'destname',
+      'destext',
+      'aartist',
+      'artist',
+      'album',
+      'song',
+    ]
+
+    fg.setColumnStretch( 0, 0 )
+    fg.setColumnStretch( 1, 4 )
+    fg.setColumnStretch( 2, 0 )
+    for t in tags:
+      r = fg.rowCount()
+      w = self.mfProperty[t] = MFProperty( t, self.mediaFile )
+      if t in [ 'srcext', 'destext' ]:
+	w.setMaximumWidth( em( w, 4 ) )
+	w.setSizePolicy( QSizePolicy.Fixed, QSizePolicy.Fixed );
+	fg.addWidget( w, 		r-1, 2 )
+      else:
+	fg.addWidget( QLabel( t ),	r, 0 )
+	fg.addWidget( w, 		r, 1 , 1, 2)
+
+    for t in [ 'srcdir', 'srcname', 'srcext', 'destdir', 'destname', 'destext' ]:
+      self.mfProperty[t].setFocusPolicy( Qt.NoFocus )
+
+    f.setLayout( fg )
+    self.setCentralWidget( f )
+
+  def loadPath( self, path ):
+    mf = self.mediaFile = MediaFile( path )
+    for w in  self.mfProperty.itervalues():
+      w.setmf( mf )
+
+  def wheelEvent( self, event ):
+    print "W: %s %d" % ( event, event.modifiers() )
+    event.setAccepted( False )
+
+  def mousePressEvent( self, event ):
+    print "+: %s %d" % ( event, event.modifiers() )
+    event.setAccepted( False )
+
+  def keyPressEvent( self, event ):
+    event.setAccepted( False )
+    if event.isAutoRepeat():
+      return
+
+  def mouseReleaseEvent( self, event ):
+    print "-: %s" % ( event )
+    event.setAccepted( False )
+
+#======================================================================
+def main():
+  QPixmapCache.setCacheLimit( 10240 )
+
+  app = QApplication( sys.argv )
+  horizontal = False
+  main = MainWindow()
+  main.setWindowFlags( Qt.Window | Qt.WindowSystemMenuHint | Qt.WindowMinMaxButtonsHint )
+  main.setWindowTitle( 'tagFullAlbum' )
+  main.setWindowIconText( 'tagFullAlbum' )
+  main.setGeometry( 100, 100, 500, 0 )
+  #main.setGeometry( QApplication.desktop().geometry().width()-65-500, 65, 500, 450 )
+
+  main.show()
+
+  if len(sys.argv):
+    main.loadPath( unicode( sys.argv[1],'utf-8') )
+
+  app.lastWindowClosed.connect( app.quit )
+  sys.exit( app.exec_() )
+
+if __name__ == '__main__':
+  main()
