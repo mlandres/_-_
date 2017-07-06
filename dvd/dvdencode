@@ -189,7 +189,7 @@ $DRYRUN HandBrakeCLI	\
   --markers --large-file --optimize	\
   --output "$OUTFILE".mp4
 
-if [ -z "$PREVIEW" ]; then
+if [ -z "$PREVIEW" -a -f "$OUTFILE".mp4 ]; then
   mp4tags -track "$DVDTILE" -album "$(basename "$DVDPATH")" "$OUTFILE".mp4
   test -f "$OUTIMAGE" || OUTIMAGE="$DVDPATH/cover-$DVDTILE.jpg"
   test -f "$OUTIMAGE" || OUTIMAGE="$DVDPATH/cover.jpg"
