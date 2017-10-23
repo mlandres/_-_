@@ -98,7 +98,7 @@ fi \
 
   function popRope( r )
   {
-    #sub( "\n    ", "\n    ["rope[r]["w"]"]", rope[r]["d"] )
+    sub( "\n    \\.* weblate", "\n    "PFX" "rope[r]["w"]" weblate", rope[r]["d"] )
     sub( "@1@", rope[r]["p"][1], rope[r]["d"] )
     sub( "@2@", rope[r]["p"][2], rope[r]["d"] )
     print rope[r]["d"]
