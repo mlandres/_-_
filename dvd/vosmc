@@ -1,0 +1,35 @@
+#! /bin/bash
+
+function imageDim()
+{
+  identify "$1" | tr ' ' '\n' | awk '
+  /^[0-9]+x[0-9]+$/ {
+    w=h=$0
+    sub( "x.*", "", w )
+    sub( ".*x", "", h )
+    printf "IW=%d\n", w
+    printf "IH=%d\n", h
+    printf "IA=%s\n", ( w == h ? "S" : ( w < h ? "P" : "L" ) )
+  }
+  '
+}
+
+
+
+VDIR="/qnap/Qmultimedia/all/Video"
+
+cd "$VDIR" || errexit "Missing VDIR=$VDIR"
+
+
+
+
+find * -maxdepth 0 -type d | while read SET; do
+
+  if [ -e "$SET"/folder.jpg ]; then
+    eval $(imageDim "$SET"/folder.jpg)
+    test "$IA" == "P" && Recho "folder.jpg portrait: $SET"
+  else
+    Recho "folder.jpg missing: $SET"
+  fi
+  
+done

@@ -1,5 +1,10 @@
 #! /bin/bash
 
+test -z "$1" && {
+  echo "Usage: posterize [-d] MOVIE.MP4..."
+  exit 1
+}
+
 test "$1" == "-d" && {
   TODIR=1
   shift
@@ -16,6 +21,7 @@ for MOVIE in "$@"; do
   if [ "$TODIR" ]; then
     test -d "$MDIR/$MNAM" || mkdir "$MDIR/$MNAM"
     mv "$MOVIE" "$MDIR/$MNAM"
+    test -f "$MOVIE-poster.jpg" && mv "$MOVIE-poster.jpg" "$MDIR/$MNAM"
     MDIR="$MDIR/$MNAM"
     MOVIE="$MDIR/$MNAM.mp4"
   fi

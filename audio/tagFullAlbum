@@ -1,6 +1,7 @@
 #! /usr/bin/python
 
 import sys, os, time, random
+import subprocess
 from PyQt4 import QtCore
 from PyQt4.QtCore import *
 from PyQt4 import QtGui
@@ -37,21 +38,40 @@ def em( w, count = 1 ):
   '''Size of <count> m's in the widgets font (1 extra for spacing). '''
   return QFontMetrics( w.font() ).width("m") * (count+1)
 
+def splitKV( line, sep ):
+  r = line.split( sep, 1 )
+  if len( r ) == 1:
+    return ( None, r[0] )
+  return ( r[0].strip(), r[1].strip() )
+
 #======================================================================
 
 class MediaFile( object ):
 
   def __init__( self, path = None ):
-    self._oVal = {}
-    if path:
-      self._oVal['srcdir']	= os.path.dirname( path )
-      self._oVal['srcname'], self._oVal['srcext'] = os.path.splitext( os.path.basename( path ) )
+    self._oVal = MediaFile._readTags( path )
+    if self._oVal:
       self._oVal['destdir']	= self._oVal['srcdir']
       self._oVal['destname']	= self._oVal['srcname']
       self._oVal['destext']	= self._oVal['srcext']
-      self._oVal['aartist']	= 'test'
 
     self._val = self._oVal.copy()
+
+  @staticmethod
+  def _readTags( path ):
+    attrs = {}
+    if path and os.path.isfile( path ):
+      for l in subprocess.check_output( ['mp4info', path ] ).split( '\n' ):
+	print l
+	k, v = splitKV( l, ':' )
+	print "%s : %s" % ( k, v )
+
+
+
+      attrs['srcdir'] = os.path.dirname( path )
+      attrs['srcname'], attrs['srcext'] = os.path.splitext( os.path.basename( path ) )
+
+    return attrs
 
   def oget( self, attr, default = None ):
     return self._oVal.get( attr, default )
@@ -62,11 +82,13 @@ class MediaFile( object ):
   def set( self, attr, val ):
     self._val[attr] = val
 
-  def changed( self, attr ):
-    return self._val.get( attr, None ) != self._oVal.get( attr, None )
-
   def differs( self, attr, val ):
-    return val != self._oVal.get( attr, None )
+    if val:
+      return ( val != self._oVal.get( attr, None ) )
+    return ( not not self._oVal.get( attr, None ) )
+
+  def changed( self, attr ):
+    return self.differs( attr, self._val.get( attr, None ) )
 
 #======================================================================
 
@@ -89,6 +111,7 @@ class MFProperty( QLineEdit ):
     print 'editingFinished %s' % self._attr
 
   def _textChanged( self, text ):
+    print "textChanged %s -> %s" % ( self._attr, text )
     if self._mf.differs( self._attr, text ):
       self.setStyleSheet( 'color: red;' );
     else:
@@ -171,20 +194,21 @@ def main():
   QPixmapCache.setCacheLimit( 10240 )
 
   app = QApplication( sys.argv )
+  app.lastWindowClosed.connect( app.quit )
+  appname = 'tagFullAlbum'
+
   horizontal = False
   main = MainWindow()
   main.setWindowFlags( Qt.Window | Qt.WindowSystemMenuHint | Qt.WindowMinMaxButtonsHint )
-  main.setWindowTitle( 'tagFullAlbum' )
-  main.setWindowIconText( 'tagFullAlbum' )
+  main.setWindowTitle( appname )
+  main.setWindowIconText( appname )
   main.setGeometry( 100, 100, 500, 0 )
   #main.setGeometry( QApplication.desktop().geometry().width()-65-500, 65, 500, 450 )
-
   main.show()
 
-  if len(sys.argv):
+  if len(sys.argv) > 2:
     main.loadPath( unicode( sys.argv[1],'utf-8') )
 
-  app.lastWindowClosed.connect( app.quit )
   sys.exit( app.exec_() )
 
 if __name__ == '__main__':
