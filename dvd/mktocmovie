@@ -1,0 +1,34 @@
+#! /bin/bash
+#
+# mktocmovie TITLE VIDEO.mp4 [COVER.jpg]
+#
+function usage()
+{
+  echo "Usage: mktocmovie TITLE VIDEO.mp4 [COVER.jpg]"
+}
+
+TITLE="$1"
+VIDEO="$2"
+COVER="$3"
+
+test -z "$TITLE" && errexit "Empty title"
+test -f "$TITLE" && errexit "Title is file"
+test -f "$VIDEO" || errexit "No video file"
+
+TDIR="$TITLE"
+test -d "$TDIR" && errexit "Targer dir exists"
+mkdir "$TDIR"
+
+TVIDEO="$TDIR/$TITLE.$(sed 's/.*\.//' <<<"$VIDEO")"
+mv "$VIDEO" "$TVIDEO"
+mp4tags -album "$TITLE" -song "$TITLE" -track 1 -tracks 1 "$TVIDEO"
+
+test -f "$COVER" && {
+  TCOVER="$TDIR/${TITLE}-poster.jpg"
+  convert -size 680x1000 "$COVER" -thumbnail 680x1000\> "$TCOVER"
+  rm "$COVER"
+  #mv "$COVER" "$TCOVER"
+  ln "$TCOVER" "$TDIR/folder.jpg"
+  mp4art --remove "$TVIDEO"
+  mp4art --add "$TCOVER" "$TVIDEO"
+}

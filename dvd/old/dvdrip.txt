@@ -1,0 +1,86 @@
+#! /bin/bash
+# ############################################################
+
+# http://www.mplayerhq.hu/DOCS/HTML/en/menc-feat-extractsub.html
+
+# Cropdetect:
+# mplayer dvd://2 -vf cropdetect
+
+# Get audio:
+# mplayer dvd://2 -identify -frames 0
+#
+#  ID_AUDIO_ID=128
+#  ID_AID_128_LANG=de
+#  ...
+#  ID_AUDIO_ID=129
+#  ID_AID_129_LANG=ja
+#  ...
+#  subtitle ( sid ): 0 language: de
+#  ...
+#  subtitle ( sid ): 1 language: de
+#
+# mplayer dvd://2 -aid 128 -sid 1
+
+# Rip:
+# mencoder dvd://2 -aid 128 -forcedsubsonly -o film.avi
+
+# audio2:
+# mencoder dvd://2 -aid 129 -ovc frameno -o audio2.avi -vobsubout subs -vobsuboutindex 0 -sid 1
+# -"-                                                  -vobsubout subs -vobsuboutindex 1 -sid 2
+#                                                    oder
+#                                                      -vobsubout subs2 -vobsuboutindex 0 -sid 2
+
+# mplayer -identify -frames 0 -dvd-device f: dvd://
+# mplayer -dvd-device f: dvd://3
+# mplayer -dvd-device f: dvd://3 -dumpstream -dumpfile movie.vob
+# mplayer -identify -frames 0 movie.vob
+# mplayer movie.vob -aid 128 bzw. mplayer -movie.vob -aid 129
+# mplayer movie.vob -aid 128 -dumpaudio -dumpfile audio_de.ac3
+# mplayer -v -frames 0 -dvd-device f: dvd://3
+# mencoder -dvd-device f: dvd://3 -nosound -ovc copy -vobsubout subtitles_de -vobsuboutindex 0 -sid 0 -o NUL
+#
+# ChapterXtractor dvdxchap -t #TRACK /dev/dvd > chapters.txt
+#
+
+# mplayer -ao pcm:fast:file=audio.wav -vo null -vc null video.avi
+# lame -V0 -q0 --vbr-new audio.wav audio.mp3
+
+# ffmpeg -i "$VID" -q:a 0 -map a "$AUD"
+#
+#
+#
+# demux with ffmpeg:
+#
+#   ffmpeg -i input.{mp4,flv,m2ts} -vcodec copy out.{h264,m2v} -acodec copy out.{aac,mp3}
+#
+# AFAIK mplayer involves two steps to demux video and audio separately:
+#
+#   mplayer -dumpvideo -dumpfile out.{h264,m2v} input.{mp4,flv,m2ts}
+#   mplayer -dumpaudio -dumpfile out.{aac,mp3} input.{mp4,flv,m2ts}
+#
+
+STEM=film
+TITLE=19
+GET="de 129 1
+     en 128 3
+     "
+
+RANGE="dvd://$TITLE/video_ts"
+
+echo "$GET" | while read L A S; do
+  test -z "$L" && continue
+  test -n "$A" && {
+    echo mplayer $RANGE -aid $A -dumpaudio -dumpfile "${STEM}_audio_${L}.ac3"
+  }
+  test -n "$S" && {
+    echo mencoder $RANGE -sid $S -nosound -ovc frameno -vobsubout "${STEM}_subtitle_${L}" -vobsuboutindex 0 -o /dev/null
+  }
+done
+
+mencoder $RANGE -profile HQ -nosound -nosub -vf crop=720:426:0:75 -o "${STEM}".c.x264
+#mencoder $RANGE -aid 129 -ovc frameno -oac mp3lame lameopts preset=extreme -af volnorm -o "${STEM}_audio_de.mpg"
+
+exit 0
+
+#mplayer dvd://19/video_ts -ss 120 -endpos 30 "$@"
+

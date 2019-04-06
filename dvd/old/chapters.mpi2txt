@@ -1,0 +1,19 @@
+#! /bin/bash
+function errexit()
+{
+  echo "$(basename "$0"): $@" >&2
+  exit 1
+}
+INP="${1:-mplayer-identify}"
+test -f "$INP" || errexit "No input file '$INP'"
+
+sed -n 's/^CHAPTERS: *//p'  "$INP"	\
+| awk --field-separator "," '
+  { 
+    for ( i = 1; i < NF; ++i )
+    { 
+       printf "CHAPTER%02d=%s\n", i, $i
+       printf "CHAPTER%02dNAME=Chapter %02d\n", i ,i 
+    }
+  }
+'

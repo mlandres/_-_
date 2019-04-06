@@ -1,0 +1,26 @@
+#! /bin/bash
+function usage()
+{
+  cat <<EOF
+Usage: $(basename $0) VIDEO.mkv
+Extract chapter info from VIDEO.mkv and write it to VIDEO.chapters.txt.
+EOF
+  exit 0
+}
+
+test -z "$1" && usage
+test -f "$1" || errexit "NO input file '$1'"
+
+INP="$1"
+OUT="$(dirname "$INP")/$(basename "$INP" .mkv).chapters.txt"
+
+mkvinfo "$INP" | awk -v out="$OUT" '
+  /ChapterTimeStart:/ {
+    s=$0; gsub( ".*ChapterTimeStart: ", "", s )
+  }
+  /ChapterString:/ {
+    t=$0; gsub( ".*ChapterString: ", "", t )
+    print s, t >out
+  }
+'
+cat "$OUT"

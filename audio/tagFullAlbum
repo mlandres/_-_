@@ -2,214 +2,265 @@
 
 import sys, os, time, random
 import subprocess
+
 from PyQt4 import QtCore
 from PyQt4.QtCore import *
 from PyQt4 import QtGui
 from PyQt4.QtGui import *
 
+from mapy.Mt import *
+
 #======================================================================
 
-# Full Album:	"<artist>/<album> [full album].<ext>"
+# Video:
+# MusicVideo/
+# 	<artist>/
+# 		<album>.<ext>
+# 		<album>-poster.jpg
+# 			song	="[full video]"
+#
+# 	<artist>/<album>/
+# 	<artist> @ <album>/
+# 		folder.jpg		<-+
+# 		<album>.<ext>		  |
+# 		<album>-poster.jpg	<-+
+# 			song	= [full video]
+#
+# 	<artist>/<album>/
+# 	<artist> @ <album>/
+# 		folder.jpg
+# 		<track> <song>.<ext>
+# 		<track> <song>-poster.jpg
+
+# Video Clip:
+# MusicClips/
+#	<artist> - <song>.<ext>"
+#		album	= [unknown album]
+
+# Full Album:
+# ???/
+#	<artist>/<album> [full album]/
+#		<album> [full album].<ext>
+
+#	<artist>/<album> [full album].<ext>"
 #	artist
 #	aartist	=""
 #	album
 #	song	="[full album]"
 #
-# Full Video:	"MusicVideo/<artist>/<album>.<ext>"
-#		"MusicVideo/<artist>/<album>-poster.jpg"
-#
-#		"<MusicVideo/artist>/<album>/<part>.<ext>"
-#		"<MusicVideo/artist>/<album>/<part>-poster.jpg"
-#	artist
-#	aartist	=""
-#	album
-#	song	="[full video]"
-#
-# Video Clip:	"MusicClips/<artist> - <song>.<ext>"
-#	artist
-#	aartist	=""
-#	album	=""
-#	song
-#
 
 #======================================================================
-
-def em( w, count = 1 ):
-  '''Size of <count> m's in the widgets font (1 extra for spacing). '''
-  return QFontMetrics( w.font() ).width("m") * (count+1)
 
 def splitKV( line, sep ):
-  r = line.split( sep, 1 )
-  if len( r ) == 1:
-    return ( None, r[0] )
-  return ( r[0].strip(), r[1].strip() )
+    r = line.split( sep, 1 )
+    if len( r ) == 1:
+        return ( None, r[0] )
+    return ( r[0].strip(), r[1].strip() )
 
 #======================================================================
+
+MP4INFO_TAGS = {
+    'albumartist'   : 'Album Artist',
+    'album'         : 'Album',
+    'artist'        : 'Artist',
+    'song'          : 'Title',
+    'track'         : 'Track Number',
+    'tracks'        : 'Total Tracks',
+    'year'          : 'Year',
+    }
+
+
+
+class KVListElement( object ):
+
+    def __init__( self ):
+        pass
+
+    @property
+    def old(self):
+        return self._x
+
+    @old.setter
+    def x(self, new_x):
+        self._x = new_x
+        # After the center is moved, emit the
+        # moved signal with the new coordinates
+        self.moved.emit(new_x, self.y)
+
+    @property
+    def new(self):
+        return self._x
+
+    @new.setter
+    def x(self, new_x):
+        self._x = new_x
+        # After the center is moved, emit the
+        # moved signal with the new coordinates
+        self.moved.emit(new_x, self.y)
+
+class KVList( object ):
+
+    def __init__( self ):
+        self._map = {}
+        pass
+
+    def setOrig( self ):
+        pass
+
+    def setValue( self ):
+        pass
+
+
 
 class MediaFile( object ):
 
-  def __init__( self, path = None ):
-    self._oVal = MediaFile._readTags( path )
-    if self._oVal:
-      self._oVal['destdir']	= self._oVal['srcdir']
-      self._oVal['destname']	= self._oVal['srcname']
-      self._oVal['destext']	= self._oVal['srcext']
+    def __init__( self, path = None ):
+        self._oVal = MediaFile._readTags( path )
+        if self._oVal:
+            self._oVal['destdir']	= self._oVal['srcdir']
+            self._oVal['destname']	= self._oVal['srcname']
+            self._oVal['destext']	= self._oVal['srcext']
 
-    self._val = self._oVal.copy()
+        self._val = self._oVal.copy()
 
-  @staticmethod
-  def _readTags( path ):
-    attrs = {}
-    if path and os.path.isfile( path ):
-      for l in subprocess.check_output( ['mp4info', path ] ).split( '\n' ):
-	print l
-	k, v = splitKV( l, ':' )
-	print "%s : %s" % ( k, v )
+    @staticmethod
+    def _readTags( path ):
+        attrs = {}
+        if path and os.path.isfile( path ):
+            for l in subprocess.check_output( ['mp4info', path ] ).split( '\n' ):
+                print l
+                k, v = splitKV( l, ':' )
+                print "%s : %s" % ( k, v )
 
+            attrs['srcdir'] = os.path.dirname( path )
+            attrs['srcname'], attrs['srcext'] = os.path.splitext( os.path.basename( path ) )
 
+        return attrs
 
-      attrs['srcdir'] = os.path.dirname( path )
-      attrs['srcname'], attrs['srcext'] = os.path.splitext( os.path.basename( path ) )
+    def oget( self, attr, default = None ):
+        return self._oVal.get( attr, default )
 
-    return attrs
+    def get( self, attr, default = None ):
+        return self._val.get( attr, default )
 
-  def oget( self, attr, default = None ):
-    return self._oVal.get( attr, default )
+    def set( self, attr, val ):
+        self._val[attr] = val
 
-  def get( self, attr, default = None ):
-    return self._val.get( attr, default )
+    def differs( self, attr, val ):
+        if val:
+            return ( val != self._oVal.get( attr, None ) )
+        return ( not not self._oVal.get( attr, None ) )
 
-  def set( self, attr, val ):
-    self._val[attr] = val
-
-  def differs( self, attr, val ):
-    if val:
-      return ( val != self._oVal.get( attr, None ) )
-    return ( not not self._oVal.get( attr, None ) )
-
-  def changed( self, attr ):
-    return self.differs( attr, self._val.get( attr, None ) )
+    def changed( self, attr ):
+        return self.differs( attr, self._val.get( attr, None ) )
 
 #======================================================================
 
 class MFProperty( QLineEdit ):
 
-  def __init__( self, attr, mediafile ):
-    QLineEdit.__init__( self )
-    self.editingFinished.connect( self._editingFinished )
-    self.textChanged.connect( self._textChanged )
+    def __init__( self, attr, mediafile ):
+        QLineEdit.__init__( self )
+        self.editingFinished.connect( self._editingFinished )
+        self.textChanged.connect( self._textChanged )
 
-    self._attr	= attr
-    self.setmf( mediafile )
+        self._attr = attr
+        self.setmf( mediafile )
 
-  def setmf( self, mediafile ):
-    self._mf = mediafile
-    self.setPlaceholderText( self._mf.oget( self._attr, '' ) )
-    self.setText( self._mf.get( self._attr, '' ) )
+    def setmf( self, mediafile ):
+        self._mf = mediafile
+        self.setPlaceholderText( self._mf.oget( self._attr, '' ) )
+        self.setText( self._mf.get( self._attr, '' ) )
 
-  def _editingFinished( self ):
-    print 'editingFinished %s' % self._attr
+    def _editingFinished( self ):
+        print 'editingFinished %s' % self._attr
 
-  def _textChanged( self, text ):
-    print "textChanged %s -> %s" % ( self._attr, text )
-    if self._mf.differs( self._attr, text ):
-      self.setStyleSheet( 'color: red;' );
-    else:
-      self.setStyleSheet( 'color: black;' );
+    def _textChanged( self, text ):
+        print "textChanged %s -> %s" % ( self._attr, text )
+        if self._mf.differs( self._attr, text ):
+            self.setStyleSheet( 'color: red;' );
+        else:
+            self.setStyleSheet( 'color: black;' );
 
 #======================================================================
 class MainWindow( QMainWindow ):
 
-  def __init__( self ):
-    QMainWindow.__init__( self )
+    def __init__( self ):
+        QMainWindow.__init__( self )
 
-    self.setFocus()
-    self.statusBar()
-    self.statusMsg = QLabel()
-    self.statusBar().addWidget( self.statusMsg, 1 )
+        self.setFocus()
+        self.statusBar()
+        self.statusMsg = QLabel()
+        self.statusBar().addWidget( self.statusMsg, 1 )
 
-    self.mediaFile = MediaFile()
-    self.mfProperty = {}
+        self.mediaFile = MediaFile()
+        self.mfProperty = {}
 
-    f = QFrame()
-    fg = QGridLayout()
+        self.tagRowsTags = ( "Album Artist", "Album", "Artist", "Song", "Track", "Tracks", "Year" )
 
-    tags = [
-      'srcdir',
-      'srcname',
-      'srcext',
-      'destdir',
-      'destname',
-      'destext',
-      'aartist',
-      'artist',
-      'album',
-      'song',
-    ]
+        f = QFrame()
+        l = QVBoxLayout()
 
-    fg.setColumnStretch( 0, 0 )
-    fg.setColumnStretch( 1, 4 )
-    fg.setColumnStretch( 2, 0 )
-    for t in tags:
-      r = fg.rowCount()
-      w = self.mfProperty[t] = MFProperty( t, self.mediaFile )
-      if t in [ 'srcext', 'destext' ]:
-	w.setMaximumWidth( em( w, 4 ) )
-	w.setSizePolicy( QSizePolicy.Fixed, QSizePolicy.Fixed );
-	fg.addWidget( w, 		r-1, 2 )
-      else:
-	fg.addWidget( QLabel( t ),	r, 0 )
-	fg.addWidget( w, 		r, 1 , 1, 2)
+        w = MTagViewTable()
+        for t in self.tagRowsTags:
+            w.addRow( t )
+        w.rowChanged.connect( self._onTagChange )
 
-    for t in [ 'srcdir', 'srcname', 'srcext', 'destdir', 'destname', 'destext' ]:
-      self.mfProperty[t].setFocusPolicy( Qt.NoFocus )
+        l.addWidget( w )
+        f.setLayout( l )
+        self.setCentralWidget( f )
 
-    f.setLayout( fg )
-    self.setCentralWidget( f )
 
-  def loadPath( self, path ):
-    mf = self.mediaFile = MediaFile( path )
-    for w in  self.mfProperty.itervalues():
-      w.setmf( mf )
+    def loadPath( self, path ):
+        mf = self.mediaFile = MediaFile( path )
+        for w in  self.mfProperty.itervalues():
+            w.setmf( mf )
 
-  def wheelEvent( self, event ):
-    print "W: %s %d" % ( event, event.modifiers() )
-    event.setAccepted( False )
+    @pyqtSlot(int)
+    def _onTagChange( self, row ):
+        print( "Row %d" % row )
+        pass
 
-  def mousePressEvent( self, event ):
-    print "+: %s %d" % ( event, event.modifiers() )
-    event.setAccepted( False )
+    def wheelEvent( self, event ):
+        print "W: %s %d" % ( event, event.modifiers() )
+        event.setAccepted( False )
 
-  def keyPressEvent( self, event ):
-    event.setAccepted( False )
-    if event.isAutoRepeat():
-      return
+    def mousePressEvent( self, event ):
+        print "+: %s %d" % ( event, event.modifiers() )
+        event.setAccepted( False )
 
-  def mouseReleaseEvent( self, event ):
-    print "-: %s" % ( event )
-    event.setAccepted( False )
+    def keyPressEvent( self, event ):
+        event.setAccepted( False )
+        if event.isAutoRepeat():
+            return
+
+    def mouseReleaseEvent( self, event ):
+        print "-: %s" % ( event )
+        event.setAccepted( False )
+
+#======================================================================
+
 
 #======================================================================
 def main():
-  QPixmapCache.setCacheLimit( 10240 )
+    QPixmapCache.setCacheLimit( 10240 )
 
-  app = QApplication( sys.argv )
-  app.lastWindowClosed.connect( app.quit )
-  appname = 'tagFullAlbum'
+    app = QApplication( sys.argv )
+    app.lastWindowClosed.connect( app.quit )
+    appname = 'tagFullAlbum'
 
-  horizontal = False
-  main = MainWindow()
-  main.setWindowFlags( Qt.Window | Qt.WindowSystemMenuHint | Qt.WindowMinMaxButtonsHint )
-  main.setWindowTitle( appname )
-  main.setWindowIconText( appname )
-  main.setGeometry( 100, 100, 500, 0 )
-  #main.setGeometry( QApplication.desktop().geometry().width()-65-500, 65, 500, 450 )
-  main.show()
+    horizontal = False
+    main = MainWindow()
+    main.setWindowFlags( Qt.Window | Qt.WindowSystemMenuHint | Qt.WindowMinMaxButtonsHint )
+    main.setWindowTitle( appname )
+    main.setWindowIconText( appname )
+    main.setGeometry( 100, 100, 600, 280 )
+    #main.setGeometry( QApplication.desktop().geometry().width()-65-500, 65, 500, 450 )
+    main.show()
 
-  if len(sys.argv) > 2:
-    main.loadPath( unicode( sys.argv[1],'utf-8') )
+    if len(sys.argv) > 2:
+        main.loadPath( unicode( sys.argv[1],'utf-8') )
 
-  sys.exit( app.exec_() )
+    sys.exit( app.exec_() )
 
 if __name__ == '__main__':
-  main()
+    main()

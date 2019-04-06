@@ -1,0 +1,21 @@
+.SUFFIXES:
+#.SUFFIXES: .o .cc .c .l .y .h
+.PHONY:		help chapters
+#############################################################
+# $@	target: left side of the ':'
+# $^	dependencies: right side of the ':'
+# $<	the first item in the dependencies
+#############################################################
+help:
+	@echo "usage: vmake TARGET"
+	@echo "Targets:"
+	@echo "  help"
+	@echo "  chapters"
+#	echo "	"
+#	echo "	"
+#############################################################
+
+chapters:	chapters.txt
+
+chapters.txt:	mplayer-identify
+	chapters.mpi2txt $< > $@

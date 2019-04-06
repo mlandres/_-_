@@ -1,0 +1,70 @@
+#!/usr/bin/ruby
+#
+# [start] - If times are start times and not durations.
+# 0:20  Intro
+# 5:23  Hybrid
+# 5:05  Pure
+#
+# CHAPTER01=00:00:00.000
+# CHAPTER01NAME=Intro
+# CHAPTER02=00:00:20.000
+# CHAPTER02NAME=Hybrid
+# CHAPTER02=00:05:43.000
+# CHAPTER02NAME=Pure
+#
+
+def dur2sec( durstr )
+  ret = 0
+  durstr.split( ':' ).each do |n|
+    ret = 60*ret + n.to_i
+  end
+  return ret
+end
+
+def sec2dur( sec )
+  h = m = s = 0
+  if ( sec > 0 )
+    s = sec%60
+    sec /= 60
+    if ( sec > 0 )
+      m = sec%60
+      h = sec / 60
+    end
+  end
+  return "#{"%02d"%h}:#{"%02d"%m}:#{"%02d"%s}.000"
+end
+
+chapno = 0
+chapstart = 0
+duration = true
+input = ( ARGV[0] and File.exist?(ARGV[0]) ) ? File.open(ARGV[0]) : STDIN
+input.each do |toc|
+  toc.chomp!
+  if ( toc == "start" || toc == "[start]" )
+    duration = false
+    next
+  end
+
+  dur,tit = toc.split( /\s+/, 2 )
+  if not /\d+:\d{2}/.match( dur )
+    if not tit or tit.empty?
+      tit = dur
+    else
+      tit = "#{dur} #{tit}"
+    end
+    dur = "0"
+  end
+  chapno += 1
+  dur = dur2sec( dur )
+  
+  duration = false if dur == 0 and chapno ==1 
+
+  tit = "Chapter %02d"%chapno if tit.empty?
+  if ( duration == true )
+    puts "CHAPTER#{"%02d"%chapno}=#{sec2dur chapstart}"
+    chapstart+=dur
+  else
+    puts "CHAPTER#{"%02d"%chapno}=#{sec2dur dur}"
+  end
+  puts "CHAPTER#{"%02d"%chapno}NAME=#{tit}"
+end

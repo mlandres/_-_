@@ -5,7 +5,7 @@ require 'ostruct'
 require 'optparse'
 # ======================================================================
 $opts = OpenStruct.new
-$opts.input	= '/misc/cd'
+$opts.input	= '/misc/dvd'
 #opts.output	= dvddump
 $opts.autonum	= false
 #opts.autostart	= 1

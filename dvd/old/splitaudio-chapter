@@ -1,0 +1,53 @@
+#!/usr/bin/ruby
+require 'shellwords'
+#
+# 0:20  Intro
+# 5:23  Hybrid
+# 5:05  Pure
+#
+# CHAPTER01=00:00:00.000
+# CHAPTER01NAME=Intro
+# CHAPTER02=00:00:20.000
+# CHAPTER02NAME=Hybrid
+# CHAPTER02=00:05:43.000
+# CHAPTER02NAME=Pure
+#
+# splitaudio-chapter videoinp [CHAPINP(chapters.txt)] [STARTNUM(1)]
+# splitaudio-chapter videoinp STARTNUM [CHAPINP(chapters.txt)]
+
+if not ( ARGV[0] and File.exist?(ARGV[0]) )
+  puts "No input file file!"
+  exit 1
+end
+vinp=Shellwords.escape( ARGV[0] )
+
+atime = Array.new
+aname = Array.new
+atrackno = ARGV[2] ? ARGV[2].to_i : 1
+
+if ( ARGV[1] and /^\d+$/.match( ARGV[1] ) )
+  atrackno = ARGV[1].to_i
+elsif ( ARGV[1] )
+  chapinp = ARGV[1]
+end
+
+if not chapinp
+  chapinp = "#{File.dirname(ARGV[0])}/chapters.txt"
+end
+
+File.open(chapinp).each do |toc|
+  k,v = toc.split( /=/, 2 )
+  v.chomp!
+  if /NAME/.match( k )
+    aname.push( "#{"%02d"%atrackno} #{v}" )
+    atrackno += 1
+  else
+    atime.push( v )
+  end
+end
+
+(0...aname.size).each do |t|
+  # ffmpeg -i "$VID" -q:a 0 -map a "$AUD"
+  #puts Shellwords.escape( aname[t] )
+  puts "ffmpeg -nostdin -i #{vinp} -ss #{atime[t]} #{"-to #{atime[t+1]}" if t+1 < atime.size} -q:a 0 -map a #{Shellwords.escape( aname[t] )}.mp3"
+end

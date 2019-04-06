@@ -1,0 +1,153 @@
+#! /bin/bash
+#
+# ############################################################
+
+OPTSTR="?hf:l:npq:sSt:"
+
+DVD_SCHEMA=dvd
+DVD_TITLE=1
+DVD_LANG=de,en
+
+INPUTFILE=
+DEINTERLACE="-vf kerndeint"
+DEINTERLACE=
+SUBTITLE="-forcedsubsonly"
+PRESET=veryslow
+#PRESET=veryfast
+
+X264_ENC=
+# fast
+X264_FQ="subq=4:bframes=2:weight_b:threads=auto:global_header"
+# high
+X264_HQ="subq=5:8x8dct:frameref=2:bframes=3:weight_b:threads=auto:global_header"
+# extra high
+X264_XQ="subq=6:partitions=all:8x8dct:me=umh:frameref=5:bframes=3:weight_b:threads=auto:global_header"
+
+RC_FILE="$HOME/.dvdriplast"
+RC_LASTTITLE=0
+test -f "$RC_FILE" && source "$RC_FILE"
+
+# ############################################################
+
+function Usage()
+{
+  echo "$*" >&2
+  cat <<- EOF >&2
+	Usage: $(basename $0) [$OPTSTR] [OUTPUTFILE [-ss SEC -endpos SEC]]
+	  -f		INPUTFILE to read instead of dvd device
+	  -l		language code ($DVD_LANG)
+	  -n		next title
+	  -p		play dvdnav:// not dvd://
+	  -t		title number ($DVD_TITLE)
+	  -s		enable subtitles
+	  -S		disable subtitles
+	Encoding:
+	  -q PRESET	Preset value: ultrafast superfast veryfast faster fast
+	 		medium slow slower veryslow ($PRESET)
+
+	  Play DVD title or encode to OUTPUTFILE.mp4
+	  for f in *.mpg ; do dvdencode -f "\$f" "\$(basename "\$f" .mpg )"; done
+
+	  To encode e.g. just a part of the titel append the coresponding
+	  mplatyer options like '-ss 120 -endpos 60'.
+
+	EOF
+  exit 1
+}
+
+function ChkArg()
+{
+  case "$1" in
+    -*)
+      Usage "Illegal argument to -$OPTNAME '$1'"
+      return 1
+      ;;
+  esac
+  return 0
+}
+
+if [ -n "$OPTSTR" ]; then
+  while getopts "$OPTSTR" OPTNAME; do
+    ChkArg $OPTARG $OPTNAME
+    case $OPTNAME in
+    f)
+      INPUTFILE="$OPTARG"
+      ;;
+    l)
+      DVD_LANG="$OPTARG"
+      ;;
+    n)
+      DVD_TITLE=$(($RC_LASTTITLE+1))
+      ;;
+    p)
+      DVD_SCHEMA="dvdnav"
+      ;;
+    q)
+      PRESET="$OPTARG"
+      ;;
+    s)
+      SUBTITLE=""
+      ;;
+    S)
+      SUBTITLE="-nosub"
+      ;;
+    t)
+      DVD_TITLE="$OPTARG"
+      ;;
+    [?h])
+      Usage
+      ;;
+    *)
+      echo "$OPTNAME($OPTARG)"
+      ;;
+    esac
+  done
+  shift $(($OPTIND-1))
+fi
+
+# ##########################################
+TUNE="film"
+#TUNE="animation"
+X264_DEF="preset=$PRESET:tune=$TUNE:threads=auto:global_header"
+#X264_ENC="$X264_XQ"
+
+if [ -z "$INPUTFILE" ]; then
+  INPUTFILE="$DVD_SCHEMA://$DVD_TITLE"
+fi
+
+if [ -z "$X264_ENC" ]; then
+  X264_ENC="$X264_DEF"
+fi
+
+OUTPUTFILE="$1"
+if [ -n "$OUTPUTFILE" ]; then
+  shift
+  OUTPUTFILE="$(sed 's%\(\....\)\?$%.mp4%' <<<"$OUTPUTFILE")"
+  #grep -q '.mp4$' <<<"$OUTPUTFILE" || OUTPUTFILE="$OUTPUTFILE.mp4"
+fi
+
+
+if [ -z "$OUTPUTFILE" ]; then
+  echo "RC_LASTTITLE=$DVD_TITLE" >"$RC_FILE"
+  echo "!!! Playing title '$INPUTFILE'"
+  mplayer "$INPUTFILE" -alang $DVD_LANG $SUBTITLE "$@"
+  echo "!!! This was title '$INPUTFILE'"
+else
+  if [ -f "$OUTPUTFILE" ]; then
+    echo "*** Outputfile exists: $OUTPUTFILE"
+    exit 1
+  else
+#      -oac lavc -lavcopts acodec=ac3 -channels 6
+#      -oac mp3lame -lameopts preset=insane -af volnorm
+#      -ss 120 -endpos 60
+# WD-TV:
+#  bframes=0:b_pyramid=none
+    mencoder \
+      -alang $DVD_LANG $SUBTITLE \
+      -oac mp3lame -lameopts preset=extreme -af volnorm \
+      -ovc x264 -x264encopts ${X264_ENC}:bframes=0:b_pyramid=none \
+      -of lavf -lavfopts format=mp4 \
+      "$@" "$INPUTFILE" -o "$OUTPUTFILE"
+ fi
+fi
+exit 0

@@ -1,0 +1,13 @@
+#! /bin/bash
+set -e
+
+CDART="/home/ma/Kodi"
+MUSIC="/qnap/Qmultimedia/all/Music"
+cd "$MUSIC"
+
+for D in 1*; do
+  test -d "$CDART/$D" || continue
+  echo "===$CDART/$D"
+  ls -l "$D/"folder.*		|| true
+  ls -l "$CDART/$D"/folder.*	|| true
+done

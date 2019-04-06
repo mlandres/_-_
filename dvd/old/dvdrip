@@ -1,0 +1,150 @@
+#! /usr/bin/env ruby
+# ############################################################
+require 'shellwords'
+require 'ostruct'
+require 'optparse'
+# ############################################################
+
+# Cropdetect:
+# mplayer dvd://2 -vf cropdetect
+
+# Get audio:
+# mplayer dvd://2 -identify -frames 0
+#
+#  ID_AUDIO_ID=128
+#  ID_AID_128_LANG=de
+#  ...
+#  ID_AUDIO_ID=129
+#  ID_AID_129_LANG=ja
+#  ...
+#  subtitle ( sid ): 0 language: de
+#  ...
+#  subtitle ( sid ): 1 language: de
+#
+# mplayer dvd://2 -aid 128 -sid 1
+
+# Rip:
+# mencoder dvd://2 -aid 128 -forcedsubsonly -o film.avi
+
+# audio2:
+# mencoder dvd://2 -aid 129 -ovc frameno -o audio2.avi -vobsubout subs -vobsuboutindex 0 -sid 1
+# -"-                                                  -vobsubout subs -vobsuboutindex 1 -sid 2
+#                                                    oder
+#                                                      -vobsubout subs2 -vobsuboutindex 0 -sid 2
+
+# mplayer -identify -frames 0 -dvd-device f: dvd://
+# mplayer -dvd-device f: dvd://3
+# mplayer -dvd-device f: dvd://3 -dumpstream -dumpfile movie.vob
+# mplayer -identify -frames 0 movie.vob
+# mplayer movie.vob -aid 128 bzw. mplayer -movie.vob -aid 129
+# mplayer movie.vob -aid 128 -dumpaudio -dumpfile audio_de.ac3
+# mplayer -v -frames 0 -dvd-device f: dvd://3
+# mencoder -dvd-device f: dvd://3 -nosound -ovc copy -vobsubout subtitles_de -vobsuboutindex 0 -sid 0 -o NUL
+#
+# ChapterXtractor dvdxchap -t #TRACK /dev/dvd > chapters.txt
+#
+
+# mplayer -ao pcm:fast:file=audio.wav -vo null -vc null video.avi
+# lame -V0 -q0 --vbr-new audio.wav audio.mp3
+
+# ffmpeg -i "$VID" -q:a 0 -map a "$AUD"
+
+# ======================================================================
+
+def command_output( cmd )
+  $stderr.puts "[SHELL] #{cmd}"
+  `#{cmd} 2>/dev/null`.split("\n")
+end
+
+# ======================================================================
+class DVDTitle
+
+  def initialize
+  end
+
+end
+
+# ======================================================================
+class DVDSource
+
+  attr_reader :dvd
+
+  def initialize( dvd='dvd://' )
+    @dvd = Shellwords.escape(dvd)
+
+    _identify.each do |l|
+      key,val = l.split( /=/, 2 )
+      puts "@#{key}@#{val}@"
+    end
+  end
+
+  def _identify
+    command_output "mplayer -identify -frames 0 #{dvd}"
+  end
+
+  def to_s
+    "DVD: #{@dvd}"
+  end
+end
+
+
+# ======================================================================
+# ======================================================================
+# ======================================================================
+
+$opts = OpenStruct.new
+#$opts.dvdpath	=
+$opts.title	= 0;
+#$opts.scan	= depends on title
+
+OptionParser.new do |o|
+  begin
+    o.banner += " <dvdpath>"
+    o.separator ""
+    o.separator "Options:"
+
+    o.on('-t <title>',Integer,'Select a title to encode (0 to just scan all titles, default: 0)') do |title|
+      $opts.title = title;
+    end
+
+    o.on('--scan','Scan selected title only.') do
+      $opts.scan = true;
+    end
+
+    o.separator ""
+    o.on('-h','--help','display this help and exit') do
+      puts o;
+      exit 0
+    end
+    # ======================================================================
+    o.parse!
+    # ======================================================================
+
+    $opts.scan = ( $opts.title == 0 ) unless $opts.scan;
+
+    # handle non option arg DVDPATH
+    raise OptionParser::MissingArgument, 'DVDPATH' if not ARGV or ARGV.empty?
+    $opts.dvdpath = ARGV.shift
+    raise OptionParser::NeedlessArgument, ARGV if not ARGV.empty?
+
+  rescue OptionParser::ParseError => e
+    puts "#{File.basename($0)}: #{e}";
+    puts "Try '#{File.basename($0)} --help' for more information."
+    exit 9
+  end
+end
+
+p $opts
+# ======================================================================
+
+dvd = DVDSource.new( $opts.dvdpath,  )
+p dvd
+
+
+
+
+
+
+
+
+

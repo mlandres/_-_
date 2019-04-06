@@ -190,7 +190,7 @@ $DRYRUN HandBrakeCLI	\
   $SUBTT	\
   $NODVDNAV	\
   --input "$DVDPATH"	\
-  --markers --large-file --optimize	\
+  --markers --optimize	\
   --output "$OUTFILE".mp4
 
 if [ -z "$PREVIEW" -a -f "$OUTFILE".mp4 ]; then
